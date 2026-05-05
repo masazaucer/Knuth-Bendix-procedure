@@ -7,6 +7,8 @@ structure Rule (A : Type) [LT (Word A)] where
   rhs : Word A
   rhs_lt_lhs : rhs < lhs
 
+-- linear order that is well-founded and translation invariant
+-- we define it on words so that we can use concatenation of lists
 class ReductionOrder (α : Type) [LinearOrder (Word α)] where
   wf : WellFounded ((· < ·) : Word α → Word α → Prop)
   tiₗ : ∀ (l₁ l₂ l : Word α), l₁ < l₂ → (l ++ l₁) < (l ++ l₂)
@@ -14,18 +16,21 @@ class ReductionOrder (α : Type) [LinearOrder (Word α)] where
 
 variable {A : Type} [LinearOrder A] [DecidableEq A] [WellFoundedLT A]
 
+-- Forms a (directed) rule from a pair of words
 def MakeRule (w₁ w₂ : Word A) (h_neq : w₁ ≠ w₂) : Rule A := {
   lhs := max w₁ w₂,
   rhs := min w₁ w₂,
   rhs_lt_lhs := by rw [min_lt_max] ; exact h_neq }
 
+-- Returns some u if w = r.lhs ++ u, otherwise returns none
 def IsPrefix (w : Word A) (r : Rule A) : Option (Word A) := List.getRest w r.lhs
 
+-- Returns w reduced by r if possible, otherwise returns w
 def ReduceOnce (w : Word A) (r : Rule A) : Word A := match w with
 | [] => []
 | a :: w' =>
   match IsPrefix w r with
-  | some u => r.2 ++ u
+  | some u => r.rhs ++ u
   | none => a :: ReduceOnce w' r
 
 
@@ -61,11 +66,9 @@ lemma EmptyWordBottom' (w : Word A) : [] < w ↔ w ≠ [] := by
 
 lemma LeqTrivialEmpty (w : Word A) : w ≤ [] → w = [] := by
   intro leq_triv
-  by_contra h_neq
-  have h1 : [] < w := by
-    exact (EmptyWordBottom' w).mpr h_neq
-  have h2 : w < [] := by
-    exact Std.lt_of_le_of_ne leq_triv h_neq
+  by_contra h_nontriv
+  have h1 : [] < w := (EmptyWordBottom' w).mpr h_nontriv
+  have h2 : w < [] := Std.lt_of_le_of_ne leq_triv h_nontriv
   exact (lt_self_iff_false []).mp (List.lt_trans h1 h2)
 
 
@@ -80,7 +83,7 @@ lemma lhsNonempty (r : Rule A) : r.lhs ≠ [] := by
     exact Std.lt_trans h2 rhs_lt_lhs
 
 
-lemma IsPrefixEmpty (s : Rule A) : IsPrefix [] s = none := by
+lemma IsPrefixEmpty_eq_none (s : Rule A) : IsPrefix [] s = none := by
   unfold IsPrefix
   have lhs_nonempty : s.lhs ≠ [] := lhsNonempty s
   have h1 : ∃ (x : A) (xs : List A), s.lhs = x :: xs := by
@@ -93,36 +96,38 @@ lemma IsPrefixEmpty (s : Rule A) : IsPrefix [] s = none := by
 lemma IsPrefix_nontrivial (w : Word A) (r : Rule A) (h : IsPrefix w r = some u) : w ≠ [] := by
   by_contra h_triv
   rw [h_triv] at h
-  rw [IsPrefixEmpty] at h
+  rw [IsPrefixEmpty_eq_none] at h
   contradiction
 
 lemma getRest_eq_concat (w v : Word A) (h : List.getRest w v = some u) : w = v ++ u := by
   sorry
 
-lemma IsPrefix_dec (w : Word A) (r : Rule A) (h : IsPrefix w r = some u) : w = r.lhs ++ u := by
+-- decomposes w = r.lhs ++ u if IsPrefix w r = some u
+lemma IsPrefixDec (w : Word A) (r : Rule A) (h : IsPrefix w r = some u) : w = r.lhs ++ u := by
   unfold IsPrefix at h
   exact getRest_eq_concat w r.lhs h
 
-
+-- reducing a word by a rule produces a smaller (or equal) word
 lemma ReduceOnce_leq [ReductionOrder A] (w : Word A) (r : Rule A) : ReduceOnce w r ≤ w := by
   induction w with
   | nil => simp [ReduceOnce]
   | cons a w' ih =>
     simp [ReduceOnce]
-    cases h : IsPrefix (a :: w') r with
+    cases h_isPrefix : IsPrefix (a :: w') r with
     | none =>
     simp
     exact List.cons_le_cons a ih
     | some u =>
-    simp [h]
-    have hw : (a :: w') = r.lhs ++ u :=
-      IsPrefix_dec (a :: w') r h
-    simp [hw]
+    simp
+    have hw : (a :: w') = r.lhs ++ u := IsPrefixDec (a :: w') r h_isPrefix
+    rw [hw]
     exact Or.inr (ReductionOrder.tiᵣ (α := A) r.rhs r.lhs u r.rhs_lt_lhs)
 
+--reduces a word by the first rule in R that applies, if any (otherwise returns w)
+def ReduceOnceStar (w : Word A) (R : List (Rule A)) : Word A := sorry
 
-def ReduceOnceStar (w : Word A) (R : List (Rule A)) : Option (Word A) := sorry
-
+--reduces a word n times, if possible, using in each step the first rule that applies (if any)
 def Reduce (w : Word A) (R : List (Rule A)) (n : Nat) : Option (Word A) := sorry
 
+-- returns all the possibilities in which given two rules form a critical pair (none if they don't form any)
 def CriticalPair (r₁ r₂ : Rule A) : Option (List (Word A)) := sorry
