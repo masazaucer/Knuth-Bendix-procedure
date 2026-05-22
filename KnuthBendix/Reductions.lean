@@ -63,7 +63,8 @@ def ReduceOnceList (w : Word A) (R : List (Rule A)) : Word A :=
   match R with
   | [] => w
   | r :: R' =>
-  if ReduceOnce w r = w then ReduceOnceList w R' else ReduceOnce w r
+  let w' := ReduceOnce w r
+  if w' = w then ReduceOnceList w R' else w'
 
 --LEMMAS ABOUT ONE STEP REDUCTION
 -- reducing a word by a rule produces a smaller (or equal) word
@@ -103,7 +104,7 @@ lemma ReduceOnceList_le [ReductionOrder A] (w : Word A) (R : List (Rule A)) (h_n
 
 -- REDUCTION BY ITERATION AND NORMAL FORMS
 --iterates ReduceOnceList n times
-def Reduce (w : Word A) (R : List (Rule A)) (n : Nat) : Word A :=
+def ReduceNat (w : Word A) (R : List (Rule A)) (n : Nat) : Word A :=
   Nat.iterate (ReduceOnceList · R) n w
 
 instance : WellFoundedRelation (Word A) where
@@ -111,15 +112,15 @@ instance : WellFoundedRelation (Word A) where
   wf := ReductionOrder.wf.wf
 
 --iterates ReduceOnceList as long as the output is changing
-def Reduce' [ReductionOrder A] (w : Word A) (R : List (Rule A)) : Word A :=
+def Reduce [ReductionOrder A] (w : Word A) (R : List (Rule A)) : Word A :=
   if h_reduceonce_eq : ReduceOnceList w R = w then
     w
   else
-    Reduce' (ReduceOnceList w R) R
+    Reduce (ReduceOnceList w R) R
 termination_by w
 decreasing_by
 exact ReduceOnceList_le w R h_reduceonce_eq
 
 
 --defines the normal form of w with respect to R as the result of iterating ReduceOnceList until it stabilizes
-def NormalForm (w : Word A) (R : List (Rule A)) : Word A := Reduce' w R
+def NormalForm (w : Word A) (R : List (Rule A)) : Word A := Reduce w R

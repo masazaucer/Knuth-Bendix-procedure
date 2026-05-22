@@ -50,7 +50,6 @@ lemma EmptyWordBottom (w : Word A) : [] ≤ w := by
   push_neg at h
   sorry
 
-
 lemma TrivOr (w : Word A) : w = [] ∨ [] < w := by
   have : [] ≤ w := EmptyWordBottom w
   exact Or.symm (Decidable.lt_or_eq_of_le' this)
