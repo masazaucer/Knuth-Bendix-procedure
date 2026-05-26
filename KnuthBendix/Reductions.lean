@@ -59,16 +59,17 @@ def ReduceOnce (w : Word A) (r : Rule A) : Word A := match w with
 
 
 --reduces a word by the first rule in R that applies, if any (otherwise returns w)
-def ReduceOnceList (w : Word A) (R : List (Rule A)) : Word A :=
+def ReduceOnceList' (w : Word A) (R : List (Rule A)) : Word A :=
   match R with
   | [] => w
   | r :: R' =>
   let w' := ReduceOnce w r
-  if w' = w then ReduceOnceList w R' else w'
+  if w' = w then ReduceOnceList' w R' else w'
+
 
 --LEMMAS ABOUT ONE STEP REDUCTION
 -- reducing a word by a rule produces a smaller (or equal) word
-lemma ReduceOnce_leq [ReductionOrder A] (w : Word A) (r : Rule A) : ReduceOnce w r ≤ w := by
+lemma ReduceOnce_leq' [ReductionOrder A] (w : Word A) (r : Rule A) : ReduceOnce w r ≤ w := by
   induction w with
   | nil => simp [ReduceOnce]
   | cons a w' ih =>
@@ -86,21 +87,99 @@ lemma ReduceOnce_leq [ReductionOrder A] (w : Word A) (r : Rule A) : ReduceOnce w
     apply tir_leq r.rhs r.lhs u (le_of_lt r.rhs_lt_lhs)
 
 -- reducing a word by a list of rules produces a smaller (or equal) word
-lemma ReduceOnceList_leq [ReductionOrder A] (w : Word A) (R : List (Rule A)) : ReduceOnceList w R ≤ w := by
+lemma ReduceOnceList_leq' [ReductionOrder A] (w : Word A) (R : List (Rule A)) : ReduceOnceList' w R ≤ w := by
   induction R with
   | nil =>
-    unfold ReduceOnceList
+    unfold ReduceOnceList'
     trivial
   | cons r R' ih =>
-    unfold ReduceOnceList
+    unfold ReduceOnceList'
     by_cases h_reduce : ReduceOnce w r = w
     · simp [h_reduce]
       exact ih
     · simp [h_reduce]
-      exact ReduceOnce_leq w r
+      exact ReduceOnce_leq' w r
+
+lemma ReduceOnceList_le' [ReductionOrder A] (w : Word A) (R : List (Rule A)) (h_neq : ReduceOnceList' w R ≠ w) : ReduceOnceList' w R < w := by
+  apply lt_of_le_of_ne (ReduceOnceList_leq' w R) h_neq
+
+--check if any LHS of a rule in R is a suffix of w. If yes returns reduced word otherwise returns none
+def CheckSuffix (w : Word A) (R : List (Rule A)) : Option (Word A) :=
+  match R with
+  | [] => none
+  | r :: RS =>
+    match List.isSuffixOf? r.lhs w with
+    | none => CheckSuffix w RS
+    | some w' => some (w' ++ r.rhs)
+
+-- if any rule is a suffix of "a" returns reduced word by that rule otherwise makes a recursive call with moving one generator from b to a (returns a if b is empty)
+def ReduceOnceList_rec (a b : Word A) (R : List (Rule A)) : Word A :=
+  match b with
+  | [] => a
+  | x :: b' =>
+    let a' := CheckSuffix a R
+    match a' with
+    | none => ReduceOnceList_rec (List.concat a x) b' R
+    | some a'' => a'' ++ b
+
+
+def ReduceOnceList (w : Word A) (R : List (Rule A)) : Word A := ReduceOnceList_rec [] w R
+
+lemma IsSuffix_eq_concat (v w : Word A) (h_suff : List.isSuffixOf? v w = some u) : w = u ++ v := by
+  simp at h_suff
+  exact Eq.symm h_suff
+
+
+lemma IsSuffixDec (w : Word A) (r : Rule A) (h : List.isSuffixOf? r.lhs w = some u) : w = u ++ r.lhs :=
+  by
+  simp at h
+  exact Eq.symm h
+
+lemma CheckSuffix_leq [ReductionOrder A] (w : Word A) (R : List (Rule A)) : CheckSuffix w R ≤ w := by
+  induction R with
+  | nil => unfold CheckSuffix; trivial
+  | cons r RS ih =>
+  unfold CheckSuffix
+  cases h : List.isSuffixOf? r.lhs w with
+  | none =>
+  exact le_of_le_of_eq ih rfl
+  | some u =>
+  simp
+  have hw : w = u ++ r.lhs := IsSuffixDec w r h
+  rw [hw]
+  refine til_leq r.rhs r.lhs u ?_
+  exact Std.le_of_lt r.rhs_lt_lhs
+
+
+
+lemma ReduceOnceList_rec_leq [ReductionOrder A] (b : Word A) (R : List (Rule A)) : ∀ a : Word A, ReduceOnceList_rec a b R ≤ (a ++ b) := by
+  induction b with
+  | nil => simp; unfold ReduceOnceList_rec; exact Std.IsPreorder.le_refl
+  | cons x b' ih =>
+  unfold ReduceOnceList_rec
+  intro a
+  cases ha : CheckSuffix a R with
+  | none =>
+  simp
+  specialize ih (a ++ [x])
+  have : a ++ x :: b' = a ++ [x] ++ b' := by exact List.append_cons a x b'
+  rw [this]
+  exact le_of_le_of_eq ih rfl
+  | some a' =>
+  simp
+  have h := CheckSuffix_leq a R
+  rw [ha] at h
+  simp at h
+  exact tir_leq a' a (x :: b') h
+
+lemma ReduceOnceList_leq [ReductionOrder A] (w : Word A) (R : List (Rule A)) : ReduceOnceList w R ≤ w := by
+  unfold ReduceOnceList
+  apply ReduceOnceList_rec_leq w
 
 lemma ReduceOnceList_le [ReductionOrder A] (w : Word A) (R : List (Rule A)) (h_neq : ReduceOnceList w R ≠ w) : ReduceOnceList w R < w := by
+  unfold ReduceOnceList
   apply lt_of_le_of_ne (ReduceOnceList_leq w R) h_neq
+
 
 -- REDUCTION BY ITERATION AND NORMAL FORMS
 --iterates ReduceOnceList n times
