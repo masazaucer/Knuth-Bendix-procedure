@@ -1,7 +1,7 @@
 module
 
-public import KnuthBendix.KnuthBendix
 public import Mathlib.Data.PFun
+public import KnuthBendix.reductions
 
 @[expose] public section
 
@@ -11,45 +11,28 @@ instance : WellFoundedRelation (Word A) where
   rel := (· < ·)
   wf := ReductionOrder.wf.wf
 
+-- word w is irreducible with respect to R if it is equal to its normal form
 def Irreducible (w : Word A) (R : List (Rule A)) : Prop := NormalForm w R = w
 
-/-
-def IsSubword (v w : Word A) : Prop := ∃ (x y : Word A), w = x ++ v ++ y
-
-def NoSubwords (R : List (Rule A)) : Prop :=
-  ∀ r ∈ R, ∀ r' ∈ R, r ≠ r' → r.lhs ≠ r'.lhs ∧ ¬ IsSubword r.lhs r'.lhs
-
-def RulesIndependent [DecidableEq (Rule A)] (R : List (Rule A)) : Prop :=
-  ∀ r ∈ R, Irreducible r.lhs (R.erase r) ∧ Irreducible r.rhs (R.erase r)
-
-def ReducedRewritingSystem
-    [DecidableEq (Rule A)]
-    (R : List (Rule A)) : Prop :=
-  ∀ r ∈ R,
-    let R' := R.erase r
-    Irreducible r.rhs R ∧
-    Irreducible r.lhs R'
-
-def OneStepReduction' (R : List (Rule A)) (w : Word A) : Word A := ReduceOnceList w R
-
-def OneStepRelation (R : List (Rule A)) (w v : Word A) : Prop :=
-  OneStepReduction' R w = v
-
-lemma KnuthBendixConfluent (R : List (Rule A)) (mem_dom : R ∈ PFun.Dom KnuthBendix) : Confluent (KnuthBendix R) := by
-  sorry
--/
+-- LHS of rules reduce to corresponding RHS
 inductive SimpleReduction (R : List (Rule A)) : Word A → Word A → Prop
   | mk : ∀ r ∈ R, SimpleReduction R r.lhs r.rhs
 
 inductive CongruenceClosure (r : Word A → Word A → Prop) : Word A → Word A → Prop
   | mk : ∀ w w' u₁ u₂ : Word A, r w w' → (CongruenceClosure r (u₁ ++ w ++ u₂) (u₁ ++ w' ++ u₂))
 
+-- congruence closure of simple reduction (i. e. reducing a word by applying one rule)
 def OneStepReduction (R : List (Rule A)) := CongruenceClosure (SimpleReduction R)
 
+-- reflexive transitive closure of one step reduction
+def Reduction (R : List (Rule A)) := Relation.ReflTransGen (OneStepReduction R)
+
+-- reflexive transitive symmetric closure of one step reduction
 def EquivalenceOfWords (R : List (Rule A)) := Relation.EqvGen (OneStepReduction R)
 
+-- R is confluent if w → v and w → u implies ∃ t, v → t and u → t
 def Confluent (R : List (Rule A)) : Prop :=
-  ∀ a b c,
-    Relation.ReflTransGen (OneStepReduction R) a b →
-    Relation.ReflTransGen (OneStepReduction R) a c →
-    Relation.Join (Relation.ReflTransGen (OneStepReduction R)) b c
+  ∀ w v u : Word A,
+    (Reduction R) w v →
+    (Reduction R) w u →
+    (Relation.Join (Reduction R)) v u
