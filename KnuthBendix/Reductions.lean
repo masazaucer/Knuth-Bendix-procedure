@@ -6,6 +6,7 @@ public import KnuthBendix.basic
 
 variable {A : Type} [LinearOrder (Word A)] [DecidableEq A] [ReductionOrder A]
 
+/--/
 -- Returns some u if w = r.lhs ++ u, otherwise returns none
 def IsPrefix (w : Word A) (r : Rule A) : Option (Word A) := List.getRest w r.lhs
 
@@ -102,6 +103,7 @@ lemma ReduceOnceList_leq' [ReductionOrder A] (w : Word A) (R : List (Rule A)) : 
 
 lemma ReduceOnceList_le' [ReductionOrder A] (w : Word A) (R : List (Rule A)) (h_neq : ReduceOnceList' w R ≠ w) : ReduceOnceList' w R < w := by
   apply lt_of_le_of_ne (ReduceOnceList_leq' w R) h_neq
+-/
 
 --check if any LHS of a rule in R is a suffix of w. If yes returns reduced word otherwise returns none
 def CheckSuffix (w : Word A) (R : List (Rule A)) : Option (Word A) :=

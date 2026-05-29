@@ -1,4 +1,4 @@
-import KnuthBendix.Basic
+import KnuthBendix.reductions
 
 variable {A : Type} [LinearOrder A] [DecidableEq A] [WellFoundedLT A] [ReductionOrder A]
 
