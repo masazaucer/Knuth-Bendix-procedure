@@ -56,6 +56,7 @@ def ReduceRules_rec (R R' : List (Rule A)) : List (Rule A) :=
 -- keeps only important rules from R and reduces them using previous ones if possible
 def ReduceRules (R : List (Rule A)) : List (Rule A) := ReduceRules_rec R []
 
+--finds all overlaps of rules r₁ and r₂ and returns only the new rules coming from overlaps
 def CheckOverlaps (r₁ r₂ : Rule A) (R : List (Rule A)) : List (Rule A) := do
   let overlaps := FindOverlaps r₁.lhs r₂.lhs
   let mut R' := []
@@ -86,6 +87,25 @@ def KnuthBendix (R : List (Rule A)) : List (Rule A) :=
 partial_fixpoint
 
 #check KnuthBendix
+
+
+--TERMINATION CONDITION
+
+def KnuthBendix_dom (R : List (Rule A)) : Prop :=
+  ∃ n : Nat, (Nat.iterate OneStepKnuthBendix n R) = (Nat.iterate OneStepKnuthBendix (n + 1) R)
+
+lemma KnuthBendix_dom_fixpoint (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
+  ∃ n : Nat, ∀ i : Nat, i ≥ n →
+  (Nat.iterate OneStepKnuthBendix i R) = (Nat.iterate OneStepKnuthBendix n R) := by
+  sorry
+
+lemma KnuthBendixDomain (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
+  ∃ n : Nat, KnuthBendix R = (Nat.iterate OneStepKnuthBendix n R) := by
+  sorry
+
+lemma Ei_sub_KB (R : List (Rule A)) (i : Nat) :
+  Nat.iterate OneStepKnuthBendix i R ⊆ KnuthBendix R := by
+  sorry
 
 
 /-

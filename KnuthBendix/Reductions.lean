@@ -201,7 +201,3 @@ def Reduce [ReductionOrder A] (w : Word A) (R : List (Rule A)) : Word A :=
 termination_by w
 decreasing_by
 exact ReduceOnceList_le w R h_reduceonce_eq
-
-
---defines the normal form of w with respect to R as the result of iterating ReduceOnceList until it stabilizes
-def NormalForm (w : Word A) (R : List (Rule A)) : Word A := Reduce w R
