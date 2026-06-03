@@ -1,6 +1,5 @@
 module
 
-public import Mathlib.Data.PFun
 public import KnuthBendix.reductions
 
 @[expose] public section
@@ -11,9 +10,7 @@ instance : WellFoundedRelation (Word A) where
   rel := (· < ·)
   wf := ReductionOrder.wf.wf
 
--- word w is irreducible with respect to R if it is equal to its normal form
-def Irreducible (w : Word A) (R : List (Rule A)) : Prop := NormalForm w R = w
-
+--DEFINITION OF EQUIVALENCE OF WORDS
 -- LHS of rules reduce to corresponding RHS
 inductive SimpleReduction (R : List (Rule A)) : Word A → Word A → Prop
   | mk : ∀ r ∈ R, SimpleReduction R r.lhs r.rhs
@@ -30,9 +27,71 @@ def Reduction (R : List (Rule A)) := Relation.ReflTransGen (OneStepReduction R)
 -- reflexive transitive symmetric closure of one step reduction
 def EquivalenceOfWords (R : List (Rule A)) := Relation.EqvGen (OneStepReduction R)
 
+
+-- word w is irreducible with respect to R if it is equal to its normal form
+def Irreducible (R : List (Rule A)) (w : Word A) : Prop :=
+  ∀ r ∈ R, ¬ (List.IsInfix r.lhs w)
+
+def IrrSet (R : List (Rule A)) : Set (Word A) := {w | Irreducible R w}
+
+def kIrrSet (k : Nat) (R : List (Rule A)) : Set (Word A) :=
+  {w | w.length ≤ k ∧ Irreducible R w}
+
+def UniqueResidue (R : List (Rule A)) (w : Word A) : Prop :=
+  ∃! v : Word A, v ∈ IrrSet R ∧ (Reduction R) w v
+
+noncomputable def NormalForm (w : Word A) (R : List (Rule A)) (h_unique_res : UniqueResidue R w) :
+  Word A := Classical.choose h_unique_res
+
+
+--LEMMAS ABOUT IRREDUCIBLES AND NORMAL FORMS
+
+lemma NormalForm_eq_Reduce (w : Word A) (R : List (Rule A)) (h_unique_res : UniqueResidue R w) :
+  NormalForm w R h_unique_res = Reduce w R := by
+  sorry
+
+lemma Reduce_eq_of_Irreducible (w : Word A) (R : List (Rule A)) (h_irr : Irreducible R w) :
+  Reduce w R = w := by
+  sorry
+
+
+-- DEFINITION OF CONFLUENCE AND COMPLETENESS
 -- R is confluent if w → v and w → u implies ∃ t, v → t and u → t
 def Confluent (R : List (Rule A)) : Prop :=
   ∀ w v u : Word A,
     (Reduction R) w v →
     (Reduction R) w u →
     (Relation.Join (Reduction R)) v u
+
+-- confluence for words of lenght at most k
+def k_Confluent (k : Nat) (R : List (Rule A)) : Prop :=
+  ∀ w v u : Word A,
+    w.length ≤ k →
+    (Reduction R) w v →
+    (Reduction R) w u →
+    (Relation.Join (Reduction R)) v u
+
+def k_Complete (k : Nat) (R : List (Rule A)) : Prop :=
+  ∀ w : Word A, w.length ≤ k → UniqueResidue R w
+
+def Complete (R : List (Rule A)) : Prop :=
+  ∀ w : Word A, UniqueResidue R w
+
+-- LEMMAS ABOUT CONFLUENCE AND COMPLETENESS
+lemma Confluent_iff_Complete (R : List (Rule A)) : Confluent R ↔ Complete R := by
+  sorry
+
+lemma k_Confluent_iff_k_Complete (k : Nat) (R : List (Rule A)) :
+  k_Confluent k R ↔ k_Complete k R := by sorry
+
+lemma k_Complete_of_Complete (k : Nat) (R : List (Rule A)) (h_complete : Complete R) :
+  k_Complete k R := by sorry
+
+lemma Complete_of_k_Complete (R : List (Rule A)) (h_k_complete : ∀ k : Nat, k_Complete k R) :
+  Complete R := by sorry
+
+lemma k_Confluent_of_Confluent (k : Nat) (R : List (Rule A)) (h_confluent : Confluent R) :
+  k_Confluent k R := by sorry
+
+lemma Confluent_of_k_Confluent (R : List (Rule A)) (h_k_confluent : ∀ k : Nat, k_Confluent k R) :
+  Confluent R := by sorry
