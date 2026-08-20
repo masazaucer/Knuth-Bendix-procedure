@@ -4,6 +4,7 @@ public import Mathlib.Data.List.Lex
 public import Mathlib.Order.MinMax
 public import Mathlib.Order.WellFounded
 public import Mathlib.Logic.Function.Iterate
+public import Mathlib.Data.Prod.Lex
 
 @[expose] public section
 
@@ -21,9 +22,9 @@ structure Overlap (A : Type) where
   overlap : Word A
   prefix₁ : Word A
   suffix₁ : Word A
-  prefix₂ : Word A
   suffix₂ : Word A
-  empty : (suffix₁ = [] ∧ prefix₂ = []) ∨ (prefix₂ = [] ∧ suffix₂ = [])
+  nontriv : overlap ≠ []
+  empty : suffix₁ = [] ∨ suffix₂ = []
 
 -- linear order that is well-founded and translation invariant
 -- we define it on words so that we can use concatenation of lists
@@ -34,7 +35,23 @@ class ReductionOrder (α : Type) [LinearOrder (Word α)] where
 
 attribute [instance] ReductionOrder.wf
 
-variable {A : Type} [LinearOrder (Word A)] [DecidableEq A] [ReductionOrder A]
+variable {A : Type} [LinearOrder (Word A)] [ReductionOrder A]
+
+open Function
+
+def f : Rule A → Lex (Word A × Word A) := fun r ↦ (r.lhs, r.rhs)
+
+lemma f_Injective : Injective (f (A := A)) := by sorry
+
+instance : LinearOrder (Rule A) :=
+  LinearOrder.lift' f f_Injective
+
+lemma OrderOnRules (r₁ r₂ : Rule A) :
+  r₁ ≤ r₂ ↔ r₁.lhs < r₂.lhs ∨ (r₁.lhs = r₂.lhs ∧ r₁.rhs ≤ r₂.rhs) := by sorry
+
+
+def SortRules (R : List (Rule A)) : List (Rule A) := List.mergeSort R
+
 
 -- Forms a (directed) rule from a pair of words
 def MakeRule (w₁ w₂ : Word A) (h_neq : w₁ ≠ w₂) : Rule A := {
@@ -42,13 +59,14 @@ def MakeRule (w₁ w₂ : Word A) (h_neq : w₁ ≠ w₂) : Rule A := {
   rhs := min w₁ w₂,
   rhs_lt_lhs := by rw [min_lt_max] ; exact h_neq }
 
-def MakeOverlap (y w_pre w_suf v_pre v_suf : Word A) (h_empty : (w_suf = [] ∧ v_pre = []) ∨ (v_pre = [] ∧ v_suf = [])) : Overlap A := {
-  overlap := y,
-  prefix₁ := w_pre,
-  suffix₁ := w_suf,
-  prefix₂ := v_pre,
-  suffix₂ := v_suf,
-  empty := h_empty }
+def MakeOverlap (y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ []) (h_empty : w_suf = [] ∨ v_suf = []) :
+  Overlap A := {
+    overlap := y,
+    prefix₁ := w_pre,
+    suffix₁ := w_suf,
+    suffix₂ := v_suf,
+    nontriv := h_nontriv,
+    empty := h_empty }
 
 lemma til_leq (l₁ l₂ l : Word A) (h : l₁ ≤ l₂) : (l ++ l₁) ≤ (l ++ l₂) := by
   by_cases h_lt : l₁ < l₂

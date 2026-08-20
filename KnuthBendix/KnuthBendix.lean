@@ -23,7 +23,7 @@ def GratestCommonPrefix_rec (u v w : Word A) : Word A × Word A × Word A :=
 def GratestCommonPrefix (v w : Word A) : Word A × Word A × Word A := GratestCommonPrefix_rec [] v w
 
 -- reduces given words using rules from R. If the reduced words are distinct returns the rule they form, otherwise returns none
-def Test (w u : Word A) (R : List (Rule A)) : Option (Rule A) :=
+def Test_for_rule (w u : Word A) (R : List (Rule A)) : Option (Rule A) :=
   let w' := Reduce w R
   let u' := Reduce u R
   if h : w' = u' then none
@@ -52,25 +52,26 @@ def FindOverlaps_rec (a b w : Word A) (S : List (Overlap A)) : List (Overlap A) 
 --order matters! (v can be subword of w but not the other way around)
 def FindOverlaps (w v : Word A) : List (Overlap A) := FindOverlaps_rec [] w v []
 
+/-
 --not used for now
 def ReduceRules_rec (R R' : List (Rule A)) : List (Rule A) :=
   match R with
   | [] => R'
   | r :: RS =>
-  match Test r.lhs r.rhs R' with
+  match Test_for_rule r.lhs r.rhs R' with
     | none => ReduceRules_rec RS R'
     | some r' => ReduceRules_rec RS (List.concat R' r')
 
 -- keeps only important rules from R and reduces them using previous ones if possible
 def ReduceRules (R : List (Rule A)) : List (Rule A) := ReduceRules_rec R []
-
+-/
 
 --finds all overlaps of rules r₁ and r₂ and returns only the new rules coming from overlaps
 def CheckOverlaps_rules (r₁ r₂ : Rule A) (R : List (Rule A)) : List (Rule A) := do
   let overlaps := FindOverlaps r₁.lhs r₂.lhs
   let mut R' := []
   for ⟨_, w, w', v',_ , _⟩ in overlaps do
-    match Test (w ++ r₂.rhs ++ w') (r₁.rhs ++ v') R with
+    match Test_for_rule (w ++ r₂.rhs ++ w') (r₁.rhs ++ v') R with
     | none => continue
     | some r => R' := R' ++ [r]
   R'
@@ -97,38 +98,3 @@ def KnuthBendix (R : List (Rule A)) : List (Rule A) :=
 partial_fixpoint
 
 #check KnuthBendix
-
-
---LEMMAS ABOUT ONE STEP KB
-
-lemma OneStepKnuthBendix_eq_NatIterate (R : List (Rule A)) (i : Nat) :
-OneStepKnuthBendix^[i + 1] R = OneStepKnuthBendix (OneStepKnuthBendix^[i] R) := by
-  sorry
-
-lemma OneStepKnuthBendix_sub_of_leq (R : List (Rule A)) (i j : Nat) (h_leq : i ≤ j) :
-OneStepKnuthBendix^[i] R ⊆ OneStepKnuthBendix^[j] R := by sorry
-
-
---TERMINATION CONDITION
-
--- R is in the domain of KnuthBendix if after some number of iterations we get a fixpoint (i.e. no new rules are added)
-def KnuthBendix_dom (R : List (Rule A)) : Prop :=
-  ∃ n : Nat, (OneStepKnuthBendix^[n] R) = (OneStepKnuthBendix^[n + 1] R)
-
--- if R is in the domain of KnuthBendix then from some n on iterating OneStepKnuthBendix returns does nothing
-lemma KnuthBendix_dom_fixpoint (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
-  ∃ n : Nat, ∀ i : Nat, i ≥ n →
-  (OneStepKnuthBendix^[i] R) = (OneStepKnuthBendix^[n] R) := by
-  sorry
-
-lemma KnuthBendixDomain (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
-  ∃ n : Nat, KnuthBendix R = (OneStepKnuthBendix^[n] R) := by
-  obtain ⟨n, h⟩ := h_dom
-  use n
-  rw [KnuthBendix]
-
-  sorry
-
-lemma Ei_sub_KB (R : List (Rule A)) (i : Nat) (h_dom : KnuthBendix_dom R) :
-  OneStepKnuthBendix^[i] R ⊆ KnuthBendix R := by
-  sorry
