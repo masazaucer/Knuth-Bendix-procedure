@@ -385,3 +385,13 @@ theorem ResiduesCoincide (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
 theorem KnuthBendix_confluent (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
   Confluent (KnuthBendix R) := by
   exact (Confluent_iff_Complete (KnuthBendix R)).mpr (KnuthBendix_Complete R h_dom)
+
+theorem KnuthBendixConfluent' (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
+  Confluent (KnuthBendix R) := by
+  refine (Confluent_iff_LocallyConfluent (KnuthBendix R)).mpr ?_
+  refine locallyConfluent_of_fixpoint (KnuthBendix R) ?_
+  exact KnuthBendixDomain_Fixpoint R h_dom
+
+theorem KnuthBendix_Complete' (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
+  Complete (KnuthBendix R) := by
+  exact (Confluent_iff_Complete (KnuthBendix R)).mp (KnuthBendixConfluent' R h_dom)

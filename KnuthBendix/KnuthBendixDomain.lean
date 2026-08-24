@@ -124,6 +124,13 @@ lemma KnuthBendixDomain (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
   · rw [h3, h2]
   · exact OSKB_fixpoint_of_succ_eq R hn.1
 
+lemma KnuthBendixDomain_Fixpoint (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
+  OneStepKnuthBendix (KnuthBendix R) = KnuthBendix R := by
+  obtain ⟨n, ⟨h_eq, hi⟩⟩ := KnuthBendixDomain R h_dom
+  rw [h_eq]
+  rw [←OneStepKnuthBendix_eq_NatIterate]
+  exact hi (n + 1) (by exact Nat.le_add_right n 1)
+
 
 lemma Ei_sub_KB (R : List (Rule A)) (i : Nat) (h_dom : KnuthBendix_dom R) :
   OneStepKnuthBendix^[i] R ⊆ KnuthBendix R := by
