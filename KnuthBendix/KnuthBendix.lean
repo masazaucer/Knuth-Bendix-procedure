@@ -29,11 +29,35 @@ def Test_for_rule (w u : Word A) (R : List (Rule A)) : Option (Rule A) :=
   if h : w' = u' then none
   else some (MakeRule w' u' h)
 
-def FindOverlaps_rec (a b w : Word A) (S : List (Overlap A)) : List (Overlap A) :=
+
+def FindOverlaps_rec' (v a b w : Word A) (S : List (Overlap A v w)) (hv : v = a ++ b): List (Overlap A v w) :=
   match b with
   | [] => S
   | x :: b' =>
     let (u, d, e) := GratestCommonPrefix b w
+    have hv' : v = (List.concat a x) ++ b' := by grind
+    match h : u with
+    | [] => FindOverlaps_rec' v (List.concat a x) b' w S hv'
+    | y :: u' =>
+      let u := y :: u'
+      have h_nontriv : u ≠ [] := by
+        exact List.cons_ne_nil y u'
+      if d = [] then
+        FindOverlaps_rec' v (List.concat a x) b' w
+        (List.concat S (MakeOverlap v w u a [] e h_nontriv (by left; trivial) (by
+        sorry))) hv'
+      else if e = [] then
+        FindOverlaps_rec' v (List.concat a x) b' w
+        (List.concat S (MakeOverlap v w u a d [] h_nontriv (by right; trivial) (by sorry))) hv'
+      else FindOverlaps_rec' v (List.concat a x) b' w S hv'
+
+/-
+def FindOverlaps_rec (a b w : Word A) (S : List (Overlap A v w)) (hv : v = a ++ b): List (Overlap A v w) :=
+  match b with
+  | [] => S
+  | x :: b' =>
+    let (u, d, e) := GratestCommonPrefix b w
+    have hv' : v = (List.concat a x) ++ b' := by sorry
     match h : u with
     | [] => FindOverlaps_rec (List.concat a x) b' w S
     | y :: u' =>
@@ -41,16 +65,18 @@ def FindOverlaps_rec (a b w : Word A) (S : List (Overlap A)) : List (Overlap A) 
       have h_nontriv : u ≠ [] := by
         exact List.cons_ne_nil y u'
       if d = [] then
+        have hv' : v = (List.concat a x) ++ b' := by sorry
         FindOverlaps_rec (List.concat a x) b' w
         (List.concat S (MakeOverlap u a [] e h_nontriv (by left; trivial)))
       else if e = [] then
         FindOverlaps_rec (List.concat a x) b' w
         (List.concat S (MakeOverlap u a d [] h_nontriv (by right; trivial)))
       else FindOverlaps_rec (List.concat a x) b' w S
+-/
 
 -- returns all possible overlaps of w and v
 --order matters! (v can be subword of w but not the other way around)
-def FindOverlaps (w v : Word A) : List (Overlap A) := FindOverlaps_rec [] w v []
+def FindOverlaps (w v : Word A) : List (Overlap A w v) := FindOverlaps_rec' w [] w v [] (by simp)
 
 /-
 --not used for now
@@ -70,7 +96,7 @@ def ReduceRules (R : List (Rule A)) : List (Rule A) := ReduceRules_rec R []
 def CheckOverlaps_rules (r₁ r₂ : Rule A) (R : List (Rule A)) : List (Rule A) := do
   let overlaps := FindOverlaps r₁.lhs r₂.lhs
   let mut R' := []
-  for ⟨_, w, w', v',_ , _⟩ in overlaps do
+  for ⟨_, w, w', v',_ , _, _⟩ in overlaps do
     match Test_for_rule (w ++ r₂.rhs ++ w') (r₁.rhs ++ v') R with
     | none => continue
     | some r => R' := R' ++ [r]

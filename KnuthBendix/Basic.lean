@@ -18,12 +18,13 @@ structure Rule (A : Type) [LT (Word A)] where
   rhs_lt_lhs : rhs < lhs
 deriving DecidableEq
 
-structure Overlap (A : Type) where
+structure Overlap (A : Type) (w u : Word A) where
   overlap : Word A
   prefix₁ : Word A
   suffix₁ : Word A
   suffix₂ : Word A
   nontriv : overlap ≠ []
+  eq : w = prefix₁ ++ overlap ++ suffix₁ ∧ u = overlap ++ suffix₂
   empty : suffix₁ = [] ∨ suffix₂ = []
 
 -- linear order that is well-founded and translation invariant
@@ -59,12 +60,13 @@ def MakeRule (w₁ w₂ : Word A) (h_neq : w₁ ≠ w₂) : Rule A := {
   rhs := min w₁ w₂,
   rhs_lt_lhs := by rw [min_lt_max] ; exact h_neq }
 
-def MakeOverlap (y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ []) (h_empty : w_suf = [] ∨ v_suf = []) :
-  Overlap A := {
+def MakeOverlap (w v y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ []) (h_empty : w_suf = [] ∨ v_suf = []) (h_eq : w = w_pre ++ y ++ w_suf ∧ v = y ++ v_suf):
+  Overlap A w v := {
     overlap := y,
     prefix₁ := w_pre,
     suffix₁ := w_suf,
     suffix₂ := v_suf,
+    eq := h_eq
     nontriv := h_nontriv,
     empty := h_empty }
 
