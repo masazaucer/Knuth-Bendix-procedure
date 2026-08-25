@@ -12,13 +12,13 @@ public import Mathlib.Data.Prod.Lex
 abbrev Word (A : Type) := List A
 
 -- Ordered pair of words
-structure Rule (A : Type) [LT (Word A)] where
+@[ext] structure Rule (A : Type) [LT (Word A)] where
   lhs : Word A
   rhs : Word A
   rhs_lt_lhs : rhs < lhs
 deriving DecidableEq
 
-structure Overlap (A : Type) (w u : Word A) where
+structure Overlap {A : Type} (w u : Word A) where
   overlap : Word A
   prefix₁ : Word A
   suffix₁ : Word A
@@ -42,13 +42,25 @@ open Function
 
 def f : Rule A → Lex (Word A × Word A) := fun r ↦ (r.lhs, r.rhs)
 
-lemma f_Injective : Injective (f (A := A)) := by sorry
+lemma f_Injective : Injective (f (A := A)) := by
+  intro r r' h_eq
+  unfold f at h_eq
+  ext1
+  · grind
+  · grind
 
 instance : LinearOrder (Rule A) :=
   LinearOrder.lift' f f_Injective
 
 lemma OrderOnRules (r₁ r₂ : Rule A) :
-  r₁ ≤ r₂ ↔ r₁.lhs < r₂.lhs ∨ (r₁.lhs = r₂.lhs ∧ r₁.rhs ≤ r₂.rhs) := by sorry
+  r₁ < r₂ ↔ r₁.lhs < r₂.lhs ∨ (r₁.lhs = r₂.lhs ∧ r₁.rhs < r₂.rhs) := by
+  constructor
+  · intro h_leq
+    have h_f_leq : f r₁ < f r₂ := by exact lt_of_lt_of_eq h_leq rfl
+    refine Prod.lex_def.mp h_f_leq
+  · intro h_le
+    have h_f_leq : f r₁ < f r₂ := by exact Prod.Lex.lt_iff.mpr h_le
+    exact lt_of_lt_of_eq h_f_leq rfl
 
 
 def SortRules (R : List (Rule A)) : List (Rule A) := List.mergeSort R
@@ -60,8 +72,9 @@ def MakeRule (w₁ w₂ : Word A) (h_neq : w₁ ≠ w₂) : Rule A := {
   rhs := min w₁ w₂,
   rhs_lt_lhs := by rw [min_lt_max] ; exact h_neq }
 
-def MakeOverlap (w v y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ []) (h_empty : w_suf = [] ∨ v_suf = []) (h_eq : w = w_pre ++ y ++ w_suf ∧ v = y ++ v_suf):
-  Overlap A w v := {
+def MakeOverlap (w v y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ [])
+  (h_empty : w_suf = [] ∨ v_suf = []) (h_eq : w = w_pre ++ y ++ w_suf ∧ v = y ++ v_suf) :
+  Overlap w v := {
     overlap := y,
     prefix₁ := w_pre,
     suffix₁ := w_suf,
@@ -82,10 +95,52 @@ lemma tir_leq (l₁ l₂ l : Word A) (h : l₁ ≤ l₂) : (l₁ ++ l) ≤ (l₂
   · have h_eq : l₁ = l₂ := le_antisymm h (le_of_not_gt h_lt)
     rw [h_eq]
 
+def pow (w : Word A) (n : Nat) : Word A :=
+  match n with
+  | 0 => []
+  | Nat.succ m => (pow w m) ++ w
+
+lemma pow_desc (w : Word A) (h : w < ([] : Word A)) :
+  ∀ n : Nat, pow w (n + 1) < pow w n := by
+  intro n
+  induction n with
+  | zero =>
+    unfold pow
+    unfold pow
+    simp_all
+  | succ m ih =>
+    unfold pow
+    exact ReductionOrder.tiᵣ (pow w (m + 1)) (pow w m) w ih
+
 lemma EmptyWordBottom (w : Word A) : [] ≤ w := by
   by_contra h
-  push_neg at h
-  sorry
+  push Not at h
+  have hacc : Acc (· < ·) ([] : Word A) := ReductionOrder.wf.wf.apply []
+  have no_chain :
+        ∀ u : Word A , Acc (· < ·) u →
+        ∀ f : ℕ → Word A, f 0 = u → (∀ n, f (n+1) < f n) → False
+      := by
+      intro a ha
+      induction ha with
+      | intro a ha ih =>
+          intro f hf0 hstep
+          have hf1 :
+              (fun n => f (n+1)) 0 = f 1 := rfl
+          have htail :
+              ∀ n, (fun n => f (n+1)) (n+1) <
+                  (fun n => f (n+1)) n := by
+            intro n
+            simpa using hstep (n+1)
+          have h_le : f 1 < a := by
+            specialize hstep 0
+            rw [←hf1, ←hf0]
+            simp_all
+          exact ih _ h_le (fun n => f (n+1)) hf1 htail
+  have : pow w 0 = [] := by
+    unfold pow
+    trivial
+  exact no_chain [] hacc (pow w) this (pow_desc w h)
+
 
 lemma TrivOr (w : Word A) : w = [] ∨ [] < w := by
   have : [] ≤ w := EmptyWordBottom w
