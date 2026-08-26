@@ -11,57 +11,12 @@ instance : WellFoundedRelation (Word A) where
   rel := (· < ·)
   wf := ReductionOrder.wf.wf
 
-/-
-def GratestCommonPrefix_rec (u v w : Word A) : Word A × Word A × Word A :=
-  match v, w with
-  | [], _ => (u, v, w)
-  | _, [] => (u, v, w)
-  | a :: v', b :: w' =>
-    if a = b then GratestCommonPrefix_rec (List.concat u a) v' w'
-    else (u, v, w)
-
--- Given two words returns gratest common prefix and the rest of both words
-def GratestCommonPrefix (v w : Word A) : Word A × Word A × Word A := GratestCommonPrefix_rec [] v w
-
-
-lemma GratestCommonPrefix_eq (v w : Word A) :
-  let (u, v', w') := GratestCommonPrefix v w;
-  v = u ++ v' ∧ w = u ++ w' := by sorry
--/
 -- reduces given words using rules from R. If the reduced words are distinct returns the rule they form, otherwise returns none
 def Test_for_rule (w u : Word A) (R : List (Rule A)) : Option (Rule A) :=
-  let w' := Reduce w R
-  let u' := Reduce u R
+  let w' := CanonicalReduction w R
+  let u' := CanonicalReduction u R
   if h : w' = u' then none
   else some (MakeRule w' u' h)
-
-lemma ListGetRestDec {w u v : Word A} : List.getRest w u = some v ↔ w = u ++ v := by
-  constructor
-  · intro h
-    induction u generalizing w v with
-    | nil =>
-      unfold List.getRest at h
-      grind
-    | cons x u' ih =>
-      cases w with
-      | nil =>
-        unfold List.getRest at h
-        grind
-      | cons y w' =>
-        unfold List.getRest at h
-        grind
-  · intro h
-    induction u generalizing w v with
-    | nil =>
-      unfold List.getRest
-      grind
-    | cons x u' ih =>
-      unfold List.getRest
-      cases w with
-      | nil =>
-        grind
-      | cons y w' =>
-        grind
 
 def FindOverlap (v a b w : Word A) (b_nontriv : b ≠ []) (w_nontriv : w ≠ []) (hv : v = a ++ b) :
   Option (Overlap v w) :=
@@ -76,7 +31,8 @@ def FindOverlap (v a b w : Word A) (b_nontriv : b ≠ []) (w_nontriv : w ≠ [])
       MakeOverlap v w w a b' [] w_nontriv (by right; trivial) (by grind)
     | none => none
 
-def FindOverlaps_rec (v a b w : Word A) (S : List (Overlap v w)) (hv : v = a ++ b) (w_nontriv : w ≠ []) :
+def FindOverlaps_rec (v a b w : Word A) (S : List (Overlap v w)) (hv : v = a ++ b)
+(w_nontriv : w ≠ []) :
   List (Overlap v w) :=
   match b with
   | [] => S
@@ -90,29 +46,6 @@ def FindOverlaps_rec (v a b w : Word A) (S : List (Overlap v w)) (hv : v = a ++ 
     | some o =>
       FindOverlaps_rec v (List.concat a x) b' w (List.concat S o) hv' w_nontriv
 
-
-/-
-def FindOverlaps_rec (a b w : Word A) (S : List (Overlap A v w)) (hv : v = a ++ b): List (Overlap A v w) :=
-  match b with
-  | [] => S
-  | x :: b' =>
-    let (u, d, e) := GratestCommonPrefix b w
-    have hv' : v = (List.concat a x) ++ b' := by sorry
-    match h : u with
-    | [] => FindOverlaps_rec (List.concat a x) b' w S
-    | y :: u' =>
-      let u := y :: u'
-      have h_nontriv : u ≠ [] := by
-        exact List.cons_ne_nil y u'
-      if d = [] then
-        have hv' : v = (List.concat a x) ++ b' := by sorry
-        FindOverlaps_rec (List.concat a x) b' w
-        (List.concat S (MakeOverlap u a [] e h_nontriv (by left; trivial)))
-      else if e = [] then
-        FindOverlaps_rec (List.concat a x) b' w
-        (List.concat S (MakeOverlap u a d [] h_nontriv (by right; trivial)))
-      else FindOverlaps_rec (List.concat a x) b' w S
--/
 
 -- returns all possible overlaps of w and v
 --order matters! (v can be subword of w but not the other way around)
@@ -165,3 +98,53 @@ def KnuthBendix (R : List (Rule A)) : List (Rule A) :=
 partial_fixpoint
 
 #check KnuthBendix
+
+
+--LEMMAS ABOUT ONE STEP KB
+
+lemma OneStepKnuthBendix_eq_NatIterate (R : List (Rule A)) (i : Nat) :
+OneStepKnuthBendix^[i + 1] R = OneStepKnuthBendix (OneStepKnuthBendix^[i] R) := by
+  have h : OneStepKnuthBendix^[i + 1] R = OneStepKnuthBendix^[1] (OneStepKnuthBendix^[i] R) := by
+    have hi : i + 1 = 1 + i := by grind
+    rw [hi]
+    exact Function.iterate_add_apply OneStepKnuthBendix 1 i R
+  rw [h]
+  simp
+
+lemma R_sub_OneStepKB (R : List (Rule A)) :
+  R ⊆ OneStepKnuthBendix R := by
+  intro r h_mem
+  unfold OneStepKnuthBendix
+  unfold SortRules
+  apply List.mem_mergeSort.mpr
+  exact List.mem_append_left (List.flatMap (fun r ↦ CheckOverlaps r R) R) h_mem
+
+
+lemma R_sub_OneStepKB_Nat (R : List (Rule A)) :
+  ∀ n : Nat, R ⊆ OneStepKnuthBendix^[n] R := by
+  intro n
+  induction n with
+  | zero => simp
+  | succ n hn =>
+  rw [OneStepKnuthBendix_eq_NatIterate]
+  have : OneStepKnuthBendix^[n] R ⊆ OneStepKnuthBendix (OneStepKnuthBendix^[n] R) := by
+    exact R_sub_OneStepKB (OneStepKnuthBendix^[n] R)
+  exact List.Subset.trans hn this
+
+lemma OneStepKB_sub_of_succ (R : List (Rule A)) (i : Nat) :
+  OneStepKnuthBendix^[i] R ⊆ OneStepKnuthBendix^[i + 1] R := by
+  rw [OneStepKnuthBendix_eq_NatIterate]
+  exact R_sub_OneStepKB (OneStepKnuthBendix^[i] R)
+
+lemma OneStepKnuthBendix_sub_of_leq (R : List (Rule A)) (i j : Nat) (h_leq : i ≤ j) :
+  OneStepKnuthBendix^[i] R ⊆ OneStepKnuthBendix^[j] R := by
+  have h : ∀ n : Nat, OneStepKnuthBendix^[i] R ⊆ OneStepKnuthBendix^[i + n] R := by
+    intro n
+    induction n with
+    | zero => simp
+    | succ n ih =>
+    have : OneStepKnuthBendix^[i + n] R ⊆ OneStepKnuthBendix^[i + (n + 1)] R := by
+      apply OneStepKB_sub_of_succ R (i + n)
+    exact List.Subset.trans ih this
+  specialize h (j - i)
+  simp_all

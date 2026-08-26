@@ -5,6 +5,7 @@ public import Mathlib.Order.MinMax
 public import Mathlib.Order.WellFounded
 public import Mathlib.Logic.Function.Iterate
 public import Mathlib.Data.Prod.Lex
+public import Mathlib.SetTheory.Lists
 
 @[expose] public section
 
@@ -36,7 +37,7 @@ class ReductionOrder (α : Type) [LinearOrder (Word α)] where
 
 attribute [instance] ReductionOrder.wf
 
-variable {A : Type} [LinearOrder (Word A)] [ReductionOrder A]
+variable {A : Type} [LinearOrder (Word A)] [ReductionOrder A] [DecidableEq A]
 
 open Function
 
@@ -175,3 +176,31 @@ lemma lhsNonempty (r : Rule A) : r.lhs ≠ [] := by
     exact rhs_lt_lhs
   | inr h2 =>
     exact Std.lt_trans h2 rhs_lt_lhs
+
+lemma ListGetRestDec {w u v : Word A} : List.getRest w u = some v ↔ w = u ++ v := by
+  constructor
+  · intro h
+    induction u generalizing w v with
+    | nil =>
+      unfold List.getRest at h
+      grind
+    | cons x u' ih =>
+      cases w with
+      | nil =>
+        unfold List.getRest at h
+        grind
+      | cons y w' =>
+        unfold List.getRest at h
+        grind
+  · intro h
+    induction u generalizing w v with
+    | nil =>
+      unfold List.getRest
+      grind
+    | cons x u' ih =>
+      unfold List.getRest
+      cases w with
+      | nil =>
+        grind
+      | cons y w' =>
+        grind

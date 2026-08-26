@@ -7,61 +7,15 @@ public import KnuthBendix.KnuthBendix
 
 variable {A : Type} [LinearOrder (Word A)] [DecidableEq A] [ReductionOrder A]
 
---LEMMAS ABOUT ONE STEP KB
-
-lemma OneStepKnuthBendix_eq_NatIterate (R : List (Rule A)) (i : Nat) :
-OneStepKnuthBendix^[i + 1] R = OneStepKnuthBendix (OneStepKnuthBendix^[i] R) := by
-  have h : OneStepKnuthBendix^[i + 1] R = OneStepKnuthBendix^[1] (OneStepKnuthBendix^[i] R) := by
-    have hi : i + 1 = 1 + i := by grind
-    rw [hi]
-    exact Function.iterate_add_apply OneStepKnuthBendix 1 i R
-  rw [h]
-  simp
-
-lemma R_sub_OneStepKB (R : List (Rule A)) :
-  R ⊆ OneStepKnuthBendix R := by
-  intro r h_mem
-  unfold OneStepKnuthBendix
-  unfold SortRules
-  apply List.mem_mergeSort.mpr
-  exact List.mem_append_left (List.flatMap (fun r ↦ CheckOverlaps r R) R) h_mem
-
-
-lemma R_sub_OneStepKB_Nat (R : List (Rule A)) :
-  ∀ n : Nat, R ⊆ OneStepKnuthBendix^[n] R := by
-  intro n
-  induction n with
-  | zero => simp
-  | succ n hn =>
-  rw [OneStepKnuthBendix_eq_NatIterate]
-  have : OneStepKnuthBendix^[n] R ⊆ OneStepKnuthBendix (OneStepKnuthBendix^[n] R) := by
-    exact R_sub_OneStepKB (OneStepKnuthBendix^[n] R)
-  exact List.Subset.trans hn this
-
-lemma OneStepKB_sub_of_succ (R : List (Rule A)) (i : Nat) :
-  OneStepKnuthBendix^[i] R ⊆ OneStepKnuthBendix^[i + 1] R := by
-  rw [OneStepKnuthBendix_eq_NatIterate]
-  exact R_sub_OneStepKB (OneStepKnuthBendix^[i] R)
-
-lemma OneStepKnuthBendix_sub_of_leq (R : List (Rule A)) (i j : Nat) (h_leq : i ≤ j) :
-  OneStepKnuthBendix^[i] R ⊆ OneStepKnuthBendix^[j] R := by
-  have h : ∀ n : Nat, OneStepKnuthBendix^[i] R ⊆ OneStepKnuthBendix^[i + n] R := by
-    intro n
-    induction n with
-    | zero => simp
-    | succ n ih =>
-    have : OneStepKnuthBendix^[i + n] R ⊆ OneStepKnuthBendix^[i + (n + 1)] R := by
-      apply OneStepKB_sub_of_succ R (i + n)
-    exact List.Subset.trans ih this
-  specialize h (j - i)
-  simp_all
-
 
 --TERMINATION CONDITION
 
 -- R is in the domain of KnuthBendix if after some number of iterations we get a fixpoint (i.e. no new rules are added)
 def KnuthBendix_dom (R : List (Rule A)) : Prop :=
   ∃ n : Nat, (OneStepKnuthBendix^[n] R) = (OneStepKnuthBendix^[n + 1] R) ∧ (∀ i < n, (OneStepKnuthBendix^[i] R) ≠ (OneStepKnuthBendix^[i + 1] R))
+
+
+--LEMMAS ABOUT KNUTH-BENDIX DOMAIN
 
 lemma OSKB_fixpoint_of_succ_eq (R : List (Rule A)) (h_succ_eq : (OneStepKnuthBendix^[n] R) = (OneStepKnuthBendix^[n + 1] R)) : ∀ i ≥ n,
   (OneStepKnuthBendix^[i] R) = (OneStepKnuthBendix^[n] R) := by

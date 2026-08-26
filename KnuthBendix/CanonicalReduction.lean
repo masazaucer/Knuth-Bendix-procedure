@@ -8,12 +8,12 @@ variable {A : Type} [LinearOrder (Word A)] [DecidableEq A]
 
 --DEFINITION OF ONE STEP REDUCTION
 --check if any LHS of a rule in R is a prefix of w. If yes returns reduced word otherwise returns none
-def CheckPrefix (w : Word A) (R : List (Rule A)) : Option (Word A) :=
+def Reduce_if_IsPrefix (w : Word A) (R : List (Rule A)) : Option (Word A) :=
   match R with
   | [] => none
   | r :: RS =>
     match List.isPrefixOf? r.lhs w with
-    | none => CheckPrefix w RS
+    | none => Reduce_if_IsPrefix w RS
     | some w' => some (r.rhs ++ w')
 
 
@@ -22,56 +22,49 @@ def ReduceOnce_rec (a b : Word A) (R : List (Rule A)) : Word A :=
   match b with
   | [] => a
   | x :: b' =>
-    match CheckPrefix b R with
+    match Reduce_if_IsPrefix b R with
     | none => ReduceOnce_rec (List.concat a x) b' R
     | some b'' => a ++ b''
 
---reduces a word with the first rule that applies from left to right (if any), otherwise returns original word
+--reduces a word with the first rule that applies from left to right (if any)
+--otherwise returns original word
 def ReduceOnce (w : Word A) (R : List (Rule A)) : Word A := ReduceOnce_rec [] w R
 
 
---PROOF THAT REDUCEONCE PRODUCES A SMALLER WORD
-
-lemma IsPrefixDec (w : Word A) (r : Rule A) (h : List.isPrefixOf? r.lhs w = some u) :
-w = r.lhs ++ u
-:= by
-  simp only [List.isPrefixOf?_eq_some_iff_append_eq] at h
-  exact Eq.symm h
-
-lemma CheckPrefix_leq [ReductionOrder A] (w : Word A) (R : List (Rule A)) :
-CheckPrefix w R ≤ w := by
-  induction R with
-  | nil => unfold CheckPrefix; trivial
-  | cons r RS ih =>
-  unfold CheckPrefix
-  cases h : List.isPrefixOf? r.lhs w with
-  | none =>
-  exact le_of_le_of_eq ih rfl
-  | some u =>
-  simp
-  have hw : w = r.lhs ++ u := IsPrefixDec w r h
-  rw [hw]
-  refine tir_leq r.rhs r.lhs u ?_
-  exact Std.le_of_lt r.rhs_lt_lhs
+--PROOF THAT "ReduceOnce" PRODUCES A SMALLER WORD
+lemma Reduce_if_IsPrefix_leq [ReductionOrder A] (w : Word A) (R : List (Rule A)) :
+  Reduce_if_IsPrefix w R ≤ w := by
+    induction R with
+    | nil => unfold Reduce_if_IsPrefix; trivial
+    | cons r RS ih =>
+    unfold Reduce_if_IsPrefix
+    cases h : List.isPrefixOf? r.lhs w with
+    | none =>
+    exact le_of_le_of_eq ih rfl
+    | some u =>
+    simp only [Option.some_le_some]
+    have hw : w = r.lhs ++ u := Eq.symm (List.isPrefixOf?_eq_some_iff_append_eq.1 h)
+    rw [hw]
+    refine tir_leq r.rhs r.lhs u ?_
+    exact Std.le_of_lt r.rhs_lt_lhs
 
 lemma ReduceOnce_rec_leq [ReductionOrder A] (b : Word A) (R : List (Rule A)) :
-∀ a : Word A, ReduceOnce_rec a b R ≤ (a ++ b) := by
-  induction b with
-  | nil => simp; unfold ReduceOnce_rec; exact Std.IsPreorder.le_refl
-  | cons x b' ih =>
-  intro a
-  unfold ReduceOnce_rec
-  cases hb : CheckPrefix (x :: b') R with
-  | none =>
-  simp
-  specialize ih (a ++ [x])
-  have : a ++ x :: b' = a ++ [x] ++ b' := by exact List.append_cons a x b'
-  exact le_of_le_of_eq ih (id (Eq.symm this))
-  | some b'' =>
-  simp
-  have h := CheckPrefix_leq (x :: b') R
-  rw [hb] at h
-  exact til_leq b'' (x :: b') a h
+  ∀ a : Word A, ReduceOnce_rec a b R ≤ (a ++ b) := by
+    induction b with
+    | nil => simp only [List.append_nil]; unfold ReduceOnce_rec; exact Std.IsPreorder.le_refl
+    | cons x b' ih =>
+    intro a
+    unfold ReduceOnce_rec
+    cases hb : Reduce_if_IsPrefix (x :: b') R with
+    | none =>
+    simp only [List.concat_eq_append]
+    specialize ih (a ++ [x])
+    have : a ++ x :: b' = a ++ [x] ++ b' := by exact List.append_cons a x b'
+    exact le_of_le_of_eq ih (id (Eq.symm this))
+    | some b'' =>
+    have h := Reduce_if_IsPrefix_leq (x :: b') R
+    rw [hb] at h
+    exact til_leq b'' (x :: b') a h
 
 --ReduceOnce w R ≤ w
 lemma ReduceOnce_leq [ReductionOrder A] (w : Word A) (R : List (Rule A)) : ReduceOnce w R ≤ w := by
@@ -96,11 +89,11 @@ instance [ReductionOrder A] : WellFoundedRelation (Word A) where
   wf := ReductionOrder.wf.wf
 
 --iterates ReduceOnce as long as the output is changing
-def Reduce [ReductionOrder A] (w : Word A) (R : List (Rule A)) : Word A :=
+def CanonicalReduction [ReductionOrder A] (w : Word A) (R : List (Rule A)) : Word A :=
   if h_reduceonce_eq : ReduceOnce w R = w then
     w
   else
-    Reduce (ReduceOnce w R) R
+    CanonicalReduction (ReduceOnce w R) R
 termination_by w
 decreasing_by
 exact ReduceOnce_le w R h_reduceonce_eq
