@@ -35,7 +35,7 @@ def ReduceOnce (w : Word A) (R : List (Rule A)) : Word A := ReduceOnce_rec [] w 
 lemma IsPrefixDec (w : Word A) (r : Rule A) (h : List.isPrefixOf? r.lhs w = some u) :
 w = r.lhs ++ u
 := by
-  simp at h
+  simp only [List.isPrefixOf?_eq_some_iff_append_eq] at h
   exact Eq.symm h
 
 lemma CheckPrefix_leq [ReductionOrder A] (w : Word A) (R : List (Rule A)) :

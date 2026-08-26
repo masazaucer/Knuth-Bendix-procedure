@@ -11,6 +11,7 @@ instance : WellFoundedRelation (Word A) where
   rel := (· < ·)
   wf := ReductionOrder.wf.wf
 
+/-
 def GratestCommonPrefix_rec (u v w : Word A) : Word A × Word A × Word A :=
   match v, w with
   | [], _ => (u, v, w)
@@ -22,6 +23,11 @@ def GratestCommonPrefix_rec (u v w : Word A) : Word A × Word A × Word A :=
 -- Given two words returns gratest common prefix and the rest of both words
 def GratestCommonPrefix (v w : Word A) : Word A × Word A × Word A := GratestCommonPrefix_rec [] v w
 
+
+lemma GratestCommonPrefix_eq (v w : Word A) :
+  let (u, v', w') := GratestCommonPrefix v w;
+  v = u ++ v' ∧ w = u ++ w' := by sorry
+-/
 -- reduces given words using rules from R. If the reduced words are distinct returns the rule they form, otherwise returns none
 def Test_for_rule (w u : Word A) (R : List (Rule A)) : Option (Rule A) :=
   let w' := Reduce w R
@@ -29,27 +35,61 @@ def Test_for_rule (w u : Word A) (R : List (Rule A)) : Option (Rule A) :=
   if h : w' = u' then none
   else some (MakeRule w' u' h)
 
+lemma ListGetRestDec {w u v : Word A} : List.getRest w u = some v ↔ w = u ++ v := by
+  constructor
+  · intro h
+    induction u generalizing w v with
+    | nil =>
+      unfold List.getRest at h
+      grind
+    | cons x u' ih =>
+      cases w with
+      | nil =>
+        unfold List.getRest at h
+        grind
+      | cons y w' =>
+        unfold List.getRest at h
+        grind
+  · intro h
+    induction u generalizing w v with
+    | nil =>
+      unfold List.getRest
+      grind
+    | cons x u' ih =>
+      unfold List.getRest
+      cases w with
+      | nil =>
+        grind
+      | cons y w' =>
+        grind
 
-def FindOverlaps_rec' (v a b w : Word A) (S : List (Overlap A v w)) (hv : v = a ++ b): List (Overlap A v w) :=
+def FindOverlap (v a b w : Word A) (b_nontriv : b ≠ []) (w_nontriv : w ≠ []) (hv : v = a ++ b) :
+  Option (Overlap v w) :=
+  match h : List.getRest w b with
+  | some w' =>
+    have hw : w = b ++ w' := by exact ListGetRestDec.mp h
+    MakeOverlap v w b a [] w' b_nontriv (by left; trivial) (by grind)
+  | none =>
+    match h' : List.getRest b w with
+    | some b' =>
+      have hb : b = w ++ b' := by exact ListGetRestDec.mp h'
+      MakeOverlap v w w a b' [] w_nontriv (by right; trivial) (by grind)
+    | none => none
+
+def FindOverlaps_rec (v a b w : Word A) (S : List (Overlap v w)) (hv : v = a ++ b) (w_nontriv : w ≠ []) :
+  List (Overlap v w) :=
   match b with
   | [] => S
   | x :: b' =>
-    let (u, d, e) := GratestCommonPrefix b w
+    let b := x :: b'
     have hv' : v = (List.concat a x) ++ b' := by grind
-    match h : u with
-    | [] => FindOverlaps_rec' v (List.concat a x) b' w S hv'
-    | y :: u' =>
-      let u := y :: u'
-      have h_nontriv : u ≠ [] := by
-        exact List.cons_ne_nil y u'
-      if d = [] then
-        FindOverlaps_rec' v (List.concat a x) b' w
-        (List.concat S (MakeOverlap v w u a [] e h_nontriv (by left; trivial) (by
-        sorry))) hv'
-      else if e = [] then
-        FindOverlaps_rec' v (List.concat a x) b' w
-        (List.concat S (MakeOverlap v w u a d [] h_nontriv (by right; trivial) (by sorry))) hv'
-      else FindOverlaps_rec' v (List.concat a x) b' w S hv'
+    have b_nontriv : b ≠ [] := by exact List.cons_ne_nil x b'
+    match FindOverlap v a b w b_nontriv w_nontriv hv with
+    | none =>
+      FindOverlaps_rec v (List.concat a x) b' w S hv' w_nontriv
+    | some o =>
+      FindOverlaps_rec v (List.concat a x) b' w (List.concat S o) hv' w_nontriv
+
 
 /-
 def FindOverlaps_rec (a b w : Word A) (S : List (Overlap A v w)) (hv : v = a ++ b): List (Overlap A v w) :=
@@ -76,7 +116,8 @@ def FindOverlaps_rec (a b w : Word A) (S : List (Overlap A v w)) (hv : v = a ++ 
 
 -- returns all possible overlaps of w and v
 --order matters! (v can be subword of w but not the other way around)
-def FindOverlaps (w v : Word A) : List (Overlap A w v) := FindOverlaps_rec' w [] w v [] (by simp)
+def FindOverlaps (v w : Word A) (w_nontriv : w ≠ []) : List (Overlap v w) :=
+  FindOverlaps_rec v [] v w [] (by simp) w_nontriv
 
 /-
 --not used for now
@@ -94,7 +135,7 @@ def ReduceRules (R : List (Rule A)) : List (Rule A) := ReduceRules_rec R []
 
 --finds all overlaps of rules r₁ and r₂ and returns only the new rules coming from overlaps
 def CheckOverlaps_rules (r₁ r₂ : Rule A) (R : List (Rule A)) : List (Rule A) := do
-  let overlaps := FindOverlaps r₁.lhs r₂.lhs
+  let overlaps := FindOverlaps r₁.lhs r₂.lhs (by exact lhsNonempty r₂)
   let mut R' := []
   for ⟨_, w, w', v',_ , _, _⟩ in overlaps do
     match Test_for_rule (w ++ r₂.rhs ++ w') (r₁.rhs ++ v') R with
