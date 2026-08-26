@@ -79,9 +79,9 @@ def MakeOverlap (w v y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ [])
     prefix₁ := w_pre,
     suffix₁ := w_suf,
     suffix₂ := v_suf,
-    eq := h_eq
     nontriv := h_nontriv,
-    empty := h_empty }
+    empty := h_empty,
+    eq := h_eq }
 
 lemma til_leq (l₁ l₂ l : Word A) (h : l₁ ≤ l₂) : (l ++ l₁) ≤ (l ++ l₂) := by
   by_cases h_lt : l₁ < l₂
