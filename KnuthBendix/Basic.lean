@@ -73,6 +73,23 @@ def MakeRule (w₁ w₂ : Word A) (h_neq : w₁ ≠ w₂) : Rule A := {
   rhs := min w₁ w₂,
   rhs_lt_lhs := by rw [min_lt_max] ; exact h_neq }
 
+lemma MakeRule_symm (u v : Word A) (h : u ≠ v): MakeRule u v h = MakeRule v u (Ne.symm h):= by
+  sorry
+
+lemma LHS_leq (u v : Word A) (h_neq : u ≠ v) :
+  let r : Rule A := MakeRule u v h_neq;
+  (r.lhs).length ≤ max u.length v.length := by
+  simp
+  have h : (MakeRule u v h_neq).lhs = max u v := by rfl
+  by_cases h_leq : u ≤ v
+  · have : (MakeRule u v h_neq).lhs = v := by rw [h]; simp_all
+    grind
+  · have : (MakeRule u v h_neq).lhs = u := by
+      rw [h]
+      simp_all only [not_le, sup_eq_left]
+      exact Std.le_of_lt h_leq
+    grind
+
 def MakeOverlap (w v y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ [])
   (h_empty : w_suf = [] ∨ v_suf = []) (h_eq : w = w_pre ++ y ++ w_suf ∧ v = y ++ v_suf) :
   Overlap w v := {

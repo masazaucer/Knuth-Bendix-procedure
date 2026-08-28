@@ -97,3 +97,7 @@ def CanonicalReduction [ReductionOrder A] (w : Word A) (R : List (Rule A)) : Wor
 termination_by w
 decreasing_by
 exact ReduceOnce_le w R h_reduceonce_eq
+
+lemma CanonicalReduction_leq [ReductionOrder A] (w : Word A) (R : List (Rule A)) :
+(CanonicalReduction w R).length ≤ w.length := by
+  sorry

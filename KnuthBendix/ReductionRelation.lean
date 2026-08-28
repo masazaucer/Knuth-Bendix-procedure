@@ -4,7 +4,7 @@ public import KnuthBendix.CanonicalReduction
 
 @[expose] public section
 
-variable {A : Type} [LinearOrder (Word A)] [ReductionOrder A]
+variable {A : Type} [LinearOrder (Word A)] [ReductionOrder A] [DecidableEq A]
 
 
 --DEFINITION OF REDUCTION RELATION AND EQUIVALENCE OF WORDS
@@ -83,6 +83,15 @@ lemma CanonicalReduction_fix_of_Irreducible [DecidableEq A] (w : Word A) (R : Li
 (h_irr : Irreducible R w) :
   CanonicalReduction w R = w := by
   sorry
+
+lemma reduces_to_CanonicalReduction (w : Word A) (R : List (Rule A)) : Reduction R w (CanonicalReduction w R) := by
+
+  sorry
+
+lemma CanonicalReductionIrreducible (w : Word A) (R : List (Rule A)) : CanonicalReduction w R ∈ IrrSet R := by sorry
+
+lemma LHS_Reducible (r : Rule A) (R : List (Rule A)) (h_mem : r ∈ R) : r.lhs ∉ IrrSet R := by sorry
+
 
 
 --TRANSLATION INVARIANCE
