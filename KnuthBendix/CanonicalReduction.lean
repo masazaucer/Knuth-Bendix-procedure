@@ -7,7 +7,7 @@ public import KnuthBendix.basic
 variable {A : Type} [LinearOrder (Word A)] [DecidableEq A]
 
 --DEFINITION OF ONE STEP REDUCTION
---check if any LHS of a rule in R is a prefix of w. If yes returns reduced word otherwise returns none
+--if any LHS of a rule in R is a prefix of w returns reduced word otherwise returns none
 def Reduce_if_IsPrefix (w : Word A) (R : List (Rule A)) : Option (Word A) :=
   match R with
   | [] => none
@@ -17,7 +17,8 @@ def Reduce_if_IsPrefix (w : Word A) (R : List (Rule A)) : Option (Word A) :=
     | some w' => some (r.rhs ++ w')
 
 
--- if any rule is a prefix of "b" returns reduced word by that rule otherwise makes a recursive call with moving one generator from b to a (returns a if b is empty)
+-- if any rule is a prefix of "b" returns reduced word by that rule otherwise makes a recursive call
+-- with moving one generator from b to a (returns a if b is empty)
 def ReduceOnce_rec (a b : Word A) (R : List (Rule A)) : Word A :=
   match b with
   | [] => a
@@ -99,5 +100,18 @@ decreasing_by
 exact ReduceOnce_le w R h_reduceonce_eq
 
 lemma CanonicalReduction_leq [ReductionOrder A] (w : Word A) (R : List (Rule A)) :
-(CanonicalReduction w R).length ≤ w.length := by
-  sorry
+CanonicalReduction w R ≤ w := by
+  let C : Word A → Prop := fun x ↦ CanonicalReduction x R ≤ x
+  apply WellFounded.fix (C := C) ReductionOrder.wf.wf
+  intro w ih
+  unfold C at *
+  specialize ih (ReduceOnce w R)
+  unfold CanonicalReduction
+  by_cases h_reduceonce_eq : ReduceOnce w R = w
+  · simp_all
+  · have h_reduceonce_lt : ReduceOnce w R < w := ReduceOnce_le w R h_reduceonce_eq
+    specialize ih h_reduceonce_lt
+    simp_all
+    have h_reduceonce_leq : ReduceOnce w R ≤ w := ReduceOnce_leq w R
+    exact Std.IsPreorder.le_trans (CanonicalReduction (ReduceOnce w R) R) (ReduceOnce w R) w ih
+        h_reduceonce_leq
