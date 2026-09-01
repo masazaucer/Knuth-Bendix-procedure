@@ -37,7 +37,37 @@ class ReductionOrder (α : Type) [LinearOrder (Word α)] where
 
 attribute [instance] ReductionOrder.wf
 
-variable {A : Type} [LinearOrder (Word A)] [ReductionOrder A] [DecidableEq A]
+variable {A : Type}
+
+lemma ListGetRestDec [DecidableEq A] {w u v : Word A} : List.getRest w u = some v ↔ w = u ++ v := by
+  constructor
+  · intro h
+    induction u generalizing w v with
+    | nil =>
+      unfold List.getRest at h
+      grind
+    | cons x u' ih =>
+      cases w with
+      | nil =>
+        unfold List.getRest at h
+        grind
+      | cons y w' =>
+        unfold List.getRest at h
+        grind
+  · intro h
+    induction u generalizing w v with
+    | nil =>
+      unfold List.getRest
+      grind
+    | cons x u' ih =>
+      unfold List.getRest
+      cases w with
+      | nil =>
+        grind
+      | cons y w' =>
+        grind
+
+variable [LinearOrder (Word A)]
 
 open Function
 
@@ -73,22 +103,53 @@ def MakeRule (w₁ w₂ : Word A) (h_neq : w₁ ≠ w₂) : Rule A := {
   rhs := min w₁ w₂,
   rhs_lt_lhs := by rw [min_lt_max] ; exact h_neq }
 
-lemma MakeRule_symm (u v : Word A) (h : u ≠ v): MakeRule u v h = MakeRule v u (Ne.symm h):= by
-  sorry
+lemma MakeRule_symm (u v : Word A) (h : u ≠ v) : MakeRule u v h = MakeRule v u (Ne.symm h):= by
+  unfold MakeRule
+  have h_eq_max : max u v = max v u := by exact max_comm u v
+  have h_eq_min : min u v = min v u := by exact min_comm u v
+  exact Rule.ext h_eq_max h_eq_min
 
 lemma LHS_leq (u v : Word A) (h_neq : u ≠ v) :
   let r : Rule A := MakeRule u v h_neq;
-  (r.lhs).length ≤ max u.length v.length := by
-  simp
-  have h : (MakeRule u v h_neq).lhs = max u v := by rfl
+  r.lhs ≤ max u v := by
+  simp only [le_sup_iff]
   by_cases h_leq : u ≤ v
-  · have : (MakeRule u v h_neq).lhs = v := by rw [h]; simp_all
-    grind
+  · have : (MakeRule u v h_neq).lhs = v := by
+      unfold MakeRule
+      simp only [sup_eq_right]
+      exact h_leq
+    rw [this]
+    right
+    trivial
   · have : (MakeRule u v h_neq).lhs = u := by
-      rw [h]
-      simp_all only [not_le, sup_eq_left]
-      exact Std.le_of_lt h_leq
-    grind
+      unfold MakeRule
+      simp only [sup_eq_left]
+      exact Std.le_of_not_ge h_leq
+    rw [this]
+    left
+    trivial
+
+lemma RHS_leq (u v : Word A) (h_neq : u ≠ v) :
+  let r : Rule A := MakeRule u v h_neq;
+  r.rhs ≤ min u v := by
+  simp only [le_inf_iff]
+  by_cases h_leq : u ≤ v
+  · have : (MakeRule u v h_neq).rhs = u := by
+      unfold MakeRule
+      simp only [inf_eq_left]
+      exact h_leq
+    rw [this]
+    constructor
+    · trivial
+    · exact le_of_le_of_eq h_leq rfl
+  · have : (MakeRule u v h_neq).rhs = v := by
+      unfold MakeRule
+      simp only [inf_eq_right]
+      exact Std.le_of_not_ge h_leq
+    rw [this]
+    constructor
+    · exact Std.le_of_not_ge h_leq
+    · trivial
 
 def MakeOverlap (w v y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ [])
   (h_empty : w_suf = [] ∨ v_suf = []) (h_eq : w = w_pre ++ y ++ w_suf ∧ v = y ++ v_suf) :
@@ -100,6 +161,8 @@ def MakeOverlap (w v y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ [])
     nontriv := h_nontriv,
     empty := h_empty,
     eq := h_eq }
+
+variable [ReductionOrder A]
 
 lemma til_leq (l₁ l₂ l : Word A) (h : l₁ ≤ l₂) : (l ++ l₁) ≤ (l ++ l₂) := by
   by_cases h_lt : l₁ < l₂
@@ -193,31 +256,3 @@ lemma lhsNonempty (r : Rule A) : r.lhs ≠ [] := by
     exact rhs_lt_lhs
   | inr h2 =>
     exact Std.lt_trans h2 rhs_lt_lhs
-
-lemma ListGetRestDec {w u v : Word A} : List.getRest w u = some v ↔ w = u ++ v := by
-  constructor
-  · intro h
-    induction u generalizing w v with
-    | nil =>
-      unfold List.getRest at h
-      grind
-    | cons x u' ih =>
-      cases w with
-      | nil =>
-        unfold List.getRest at h
-        grind
-      | cons y w' =>
-        unfold List.getRest at h
-        grind
-  · intro h
-    induction u generalizing w v with
-    | nil =>
-      unfold List.getRest
-      grind
-    | cons x u' ih =>
-      unfold List.getRest
-      cases w with
-      | nil =>
-        grind
-      | cons y w' =>
-        grind
