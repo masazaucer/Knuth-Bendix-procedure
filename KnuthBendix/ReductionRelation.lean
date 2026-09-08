@@ -85,13 +85,26 @@ lemma CanonicalReduction_fix_of_Irreducible [DecidableEq A] (w : Word A) (R : Li
   sorry
 
 lemma reduces_to_CanonicalReduction (w : Word A) (R : List (Rule A)) : Reduction R w (CanonicalReduction w R) := by
-
   sorry
 
-lemma CanonicalReductionIrreducible (w : Word A) (R : List (Rule A)) : CanonicalReduction w R ∈ IrrSet R := by sorry
 
-lemma LHS_Reducible (r : Rule A) (R : List (Rule A)) (h_mem : r ∈ R) : r.lhs ∉ IrrSet R := by sorry
+lemma irreducible_iff_reduceOnce_eq (w : Word A) (R : List (Rule A)) :
+  Irreducible R w ↔ ReduceOnce w R = w := by
+  unfold Irreducible
+  exact Iff.symm (ReduceOnce_eq_iff w R)
 
+
+lemma CanonicalReductionIrreducible (w : Word A) (R : List (Rule A)) : CanonicalReduction w R ∈ IrrSet R := by
+  have : _ := CR_fix_ReduceOnce w R
+  apply (irreducible_iff_reduceOnce_eq (CanonicalReduction w R) R).2
+  exact CR_fix_ReduceOnce w R
+
+lemma LHS_Reducible (r : Rule A) (R : List (Rule A)) (h_mem : r ∈ R) : r.lhs ∉ IrrSet R := by
+  unfold IrrSet
+  by_contra h_irr
+  specialize h_irr r h_mem
+  have : List.IsInfix r.lhs r.lhs := List.infix_refl r.lhs
+  contradiction
 
 
 --TRANSLATION INVARIANCE
