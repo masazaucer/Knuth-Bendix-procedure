@@ -45,26 +45,113 @@ def k_LocallyConfluent (k : Nat) (R : List (Rule A)) : Prop :=
     (OneStepReduction R) w u →
     (Relation.Join (Reduction R)) v u
 
+
+lemma Irreducible_fix {w t : Word A} {R : List (Rule A)} (h_irr : w ∈ IrrSet R) (h_reduces : Reduction R w t) : w = t := by
+  unfold IrrSet at h_irr
+  unfold Irreducible at h_irr
+  unfold Reduction at h_reduces
+  cases Relation.reflTransGen_iff_eq_or_transGen.mp h_reduces with
+  | inl h_eq => simp_all
+  | inr h =>
+    have : ∃ u, OneStepReduction R w u := by
+      obtain ⟨u, hu⟩ := Relation.TransGen.head'_iff.mp h
+      exact ⟨u, hu.1⟩
+    obtain ⟨w', h_onestep⟩  := this
+    obtain ⟨r, r_mem, u, v, h⟩ := rule_of_OneStepReduction R h_onestep
+    specialize h_irr r r_mem
+    grind
+
 -- LEMMAS ABOUT CONFLUENCE, LOCAL CONFLUENCE AND COMPLETENESS
 lemma Confluent_iff_Complete (R : List (Rule A)) : Confluent R ↔ Complete R := by
-  sorry
+  constructor
+  · intro h_confluent w
+    use (CanonicalReduction w R)
+    obtain CR_reduct := reduces_to_CanonicalReduction w R
+    obtain CR_irr := CR_Irreducible w R
+    refine ⟨⟨CR_irr, CR_reduct⟩ , ?_⟩
+    intro v ⟨v_irr, v_reduct⟩
+    specialize h_confluent w v (CanonicalReduction w R) v_reduct CR_reduct
+    obtain ⟨t, h⟩ := h_confluent
+    have v_eq_t : v = t := Irreducible_fix v_irr h.1
+    have CR_eq_t : (CanonicalReduction w R) = t := Irreducible_fix CR_irr h.2
+    rw [v_eq_t, ←CR_eq_t]
+  · intro h_complete w u v reduces_wu reduces_wv
+    have CR_eq : CanonicalReduction u R = CanonicalReduction v R := by
+      have reduces_w_CRu : Reduction R w (CanonicalReduction u R) := by
+        unfold Reduction
+        exact Relation.ReflTransGen.trans reduces_wu (reduces_to_CanonicalReduction u R)
+      have reduces_w_CRv : Reduction R w (CanonicalReduction v R) := by
+        unfold Reduction
+        exact Relation.ReflTransGen.trans reduces_wv (reduces_to_CanonicalReduction v R)
+      specialize h_complete w
+      unfold UniqueResidue at h_complete
+      obtain ⟨w', ⟨h_irr, h_reduces'⟩, hw⟩ := h_complete
+      have CRu_eq_w' : CanonicalReduction u R = w' := by
+        exact hw (CanonicalReduction u R) ⟨by exact CR_Irreducible u R, reduces_w_CRu⟩
+      have CRv_eq_w' : CanonicalReduction v R = w' := by
+        exact hw (CanonicalReduction v R) ⟨by exact CR_Irreducible v R, reduces_w_CRv⟩
+      rw [CRu_eq_w', CRv_eq_w']
+    use  CanonicalReduction u R
+    exact ⟨by exact reduces_to_CanonicalReduction u R,
+      by rw [CR_eq]; exact reduces_to_CanonicalReduction v R⟩
+
 
 lemma k_Confluent_iff_k_Complete (k : Nat) (R : List (Rule A)) :
-  k_Confluent k R ↔ k_Complete k R := by sorry
+  k_Confluent k R ↔ k_Complete k R := by
+  constructor
+  · intro k_confluent w h_len
+    use CanonicalReduction w R
+    refine ⟨⟨CR_Irreducible w R, reduces_to_CanonicalReduction w R⟩ , ?_⟩
+    intro v ⟨v_irr, v_reduct⟩
+    specialize k_confluent w v (CanonicalReduction w R) h_len v_reduct (reduces_to_CanonicalReduction w R)
+    obtain ⟨t, h⟩ := k_confluent
+    have v_eq_t : v = t := Irreducible_fix v_irr h.1
+    have CR_eq_t : (CanonicalReduction w R) = t := Irreducible_fix (CR_Irreducible w R) h.2
+    rw [v_eq_t, ←CR_eq_t]
+  · intro k_complete w v u h_len reduces_wv reduces_wu
+    use CanonicalReduction u R
+    have CR_eq : CanonicalReduction u R = CanonicalReduction v R := by
+      have reduces_CRu : Reduction R w (CanonicalReduction u R) := by
+        exact Relation.ReflTransGen.trans reduces_wu (reduces_to_CanonicalReduction u R)
+      have reduces_CRv : Reduction R w (CanonicalReduction v R) := by
+        exact Relation.ReflTransGen.trans reduces_wv (reduces_to_CanonicalReduction v R)
+      specialize k_complete w h_len
+      obtain ⟨w', ⟨h_irr, h_reduces'⟩, hw⟩ := k_complete
+      have CRu_eq_w' : CanonicalReduction u R = w' := by
+        exact hw (CanonicalReduction u R) ⟨by exact CR_Irreducible u R, reduces_CRu⟩
+      have CRv_eq_w' : CanonicalReduction v R = w' := by
+        exact hw (CanonicalReduction v R) ⟨by exact CR_Irreducible v R, reduces_CRv⟩
+      rw [CRu_eq_w', CRv_eq_w']
+    exact ⟨by rw [CR_eq]; exact reduces_to_CanonicalReduction v R,
+      reduces_to_CanonicalReduction u R⟩
 
 lemma k_Complete_of_Complete (k : Nat) (R : List (Rule A)) (h_complete : Complete R) :
-  k_Complete k R := by sorry
+  k_Complete k R := by
+  intro w h_len
+  exact h_complete w
 
 lemma Complete_of_k_Complete (R : List (Rule A)) (h_k_complete : ∀ k : Nat, k_Complete k R) :
-  Complete R := by sorry
+  Complete R := by
+  intro w
+  exact h_k_complete w.length w (by trivial)
 
 lemma k_Confluent_of_Confluent (k : Nat) (R : List (Rule A)) (h_confluent : Confluent R) :
-  k_Confluent k R := by sorry
+  k_Confluent k R := by
+  intro w u v h_len reduces_wu reduces_wv
+  exact h_confluent w u v reduces_wu reduces_wv
 
 lemma Confluent_of_k_Confluent (R : List (Rule A)) (h_k_confluent : ∀ k : Nat, k_Confluent k R) :
-  Confluent R := by sorry
+  Confluent R := by
+  intro w u v reduces_wu reduces_wv
+  exact h_k_confluent (w.length) w u v (by trivial) reduces_wu reduces_wv
 
-lemma Confluent_iff_LocallyConfluent (R : List (Rule A)) : Confluent R ↔ LocallyConfluent R := by sorry
+lemma Confluent_iff_LocallyConfluent (R : List (Rule A)) : Confluent R ↔ LocallyConfluent R := by
+  constructor
+  · intro h_confluent w u v reduceOS_wu reduceOS_wv
+    exact h_confluent w u v (Reduction_of_OneStepReduction w u R reduceOS_wu)
+      (Reduction_of_OneStepReduction w v R reduceOS_wv)
+  · intro h_loc_conf w u v reduce_wu reduce_wv
+    sorry
 
 lemma k_Confluent_iff_k_LocallyConfluent (k : Nat) (R : List (Rule A)) :
   k_Confluent k R ↔ k_LocallyConfluent k R := by sorry
