@@ -71,6 +71,8 @@ variable [LinearOrder (Word A)]
 
 open Function
 
+-- ORDER ON RULES
+
 def f : Rule A → Lex (Word A × Word A) := fun r ↦ (r.lhs, r.rhs)
 
 lemma f_Injective : Injective (f (A := A)) := by
@@ -83,6 +85,8 @@ lemma f_Injective : Injective (f (A := A)) := by
 instance : LinearOrder (Rule A) :=
   LinearOrder.lift' f f_Injective
 
+def SortRules (R : List (Rule A)) : List (Rule A) := List.mergeSort R
+
 lemma OrderOnRules (r₁ r₂ : Rule A) :
   r₁ < r₂ ↔ r₁.lhs < r₂.lhs ∨ (r₁.lhs = r₂.lhs ∧ r₁.rhs < r₂.rhs) := by
   constructor
@@ -94,14 +98,28 @@ lemma OrderOnRules (r₁ r₂ : Rule A) :
     exact lt_of_lt_of_eq h_f_leq rfl
 
 
-def SortRules (R : List (Rule A)) : List (Rule A) := List.mergeSort R
 
+-- MAKE OVERLAP AND RULE
+
+def MakeOverlap (w v y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ [])
+  (h_empty : w_suf = [] ∨ v_suf = []) (h_eq : w = w_pre ++ y ++ w_suf ∧ v = y ++ v_suf) :
+  Overlap w v := {
+    overlap := y,
+    prefix₁ := w_pre,
+    suffix₁ := w_suf,
+    suffix₂ := v_suf,
+    nontriv := h_nontriv,
+    empty := h_empty,
+    eq := h_eq }
 
 -- Forms a (directed) rule from a pair of words
 def MakeRule (w₁ w₂ : Word A) (h_neq : w₁ ≠ w₂) : Rule A := {
   lhs := max w₁ w₂,
   rhs := min w₁ w₂,
   rhs_lt_lhs := by rw [min_lt_max] ; exact h_neq }
+
+
+--LEMMAS ABOUT "MakeRule"
 
 lemma MakeRule_symm (u v : Word A) (h : u ≠ v) : MakeRule u v h = MakeRule v u (Ne.symm h):= by
   unfold MakeRule
@@ -151,18 +169,11 @@ lemma RHS_leq (u v : Word A) (h_neq : u ≠ v) :
     · exact Std.le_of_not_ge h_leq
     · trivial
 
-def MakeOverlap (w v y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ [])
-  (h_empty : w_suf = [] ∨ v_suf = []) (h_eq : w = w_pre ++ y ++ w_suf ∧ v = y ++ v_suf) :
-  Overlap w v := {
-    overlap := y,
-    prefix₁ := w_pre,
-    suffix₁ := w_suf,
-    suffix₂ := v_suf,
-    nontriv := h_nontriv,
-    empty := h_empty,
-    eq := h_eq }
 
 variable [ReductionOrder A]
+
+
+--TRANSLATION INVARIANCE (LESS OR EQUAL)
 
 lemma til_leq (l₁ l₂ l : Word A) (h : l₁ ≤ l₂) : (l ++ l₁) ≤ (l ++ l₂) := by
   by_cases h_lt : l₁ < l₂
@@ -175,6 +186,9 @@ lemma tir_leq (l₁ l₂ l : Word A) (h : l₁ ≤ l₂) : (l₁ ++ l) ≤ (l₂
   · exact le_of_lt (ReductionOrder.tiᵣ l₁ l₂ l h_lt)
   · have h_eq : l₁ = l₂ := le_antisymm h (le_of_not_gt h_lt)
     rw [h_eq]
+
+
+--LEMMAS ABOUT EMPTY WORD BEING THE LEAST ELEMENT
 
 def pow (w : Word A) (n : Nat) : Word A :=
   match n with
@@ -247,6 +261,7 @@ lemma LeqTrivial_Empty (w : Word A) : w ≤ [] → w = [] := by
   exact eq_of_ge_of_le (EmptyWordBottom w) leq_triv
 
 
+-- RULE CANNOT HAVE TRIVIAL LHS
 lemma lhsNonempty (r : Rule A) : r.lhs ≠ [] := by
   apply (EmptyWordBottom' r.lhs).mp
   have rhs_lt_lhs : r.rhs < r.lhs := r.rhs_lt_lhs
