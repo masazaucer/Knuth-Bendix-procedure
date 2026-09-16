@@ -27,6 +27,11 @@ def EquivalenceOfWords (R : List (Rule A)) := Relation.EqvGen (OneStepReduction 
 
 -- LEMMAS ABOUT REDUCTION
 
+lemma Reduction_of_OneStepReduction (w u : Word A) (R : List (Rule A)) (h : OneStepReduction R w u) :
+  Reduction R w u := by
+  unfold Reduction
+  exact Relation.ReflTransGen.single h
+
 lemma rule_of_OneStepReduction (R : List (Rule A)) :
   OneStepReduction R w w' →
   ∃ r : Rule A, r ∈ R ∧ ∃ u v : Word A, w = u ++ r.lhs ++ v ∧ w' = u ++ r.rhs ++ v
@@ -38,6 +43,49 @@ lemma rule_of_OneStepReduction (R : List (Rule A)) :
   induction reduces with
   | mk r _ =>
   grind
+
+lemma step_of_reduction {w w' : Word A} {R : List (Rule A)} (h_reduces : Reduction R w w') :
+w = w' ∨ (∃ u : Word A, OneStepReduction R w u ∧ Reduction R u w') := by
+  unfold Reduction
+  exact Relation.ReflTransGen.cases_head_iff.mp h_reduces
+
+lemma OneStepReduction_le {w w' : Word A} {R : List (Rule A)} (h_reduces : OneStepReduction R w w') :
+  w' < w := by
+  obtain ⟨r, ⟨h_mem, ⟨u, v, h⟩⟩⟩ := rule_of_OneStepReduction R h_reduces
+  rw [h.1, h.2]
+  refine ReductionOrder.tiᵣ (u ++ r.rhs) (u ++ r.lhs) v ?_
+  refine ReductionOrder.tiₗ r.rhs r.lhs u ?_
+  exact r.rhs_lt_lhs
+
+lemma Reduction_leq {w w' : Word A} {R : List (Rule A)} (h : Reduction R w w') :
+  w' ≤ w := by
+  let C : Word A → Prop := fun x ↦ ∀ y : Word A, Reduction R x y → y ≤ x
+  have : C w := by
+    apply WellFounded.fix (C := C) ReductionOrder.wf.wf
+    intro x ih y reduces_xy
+    cases step_of_reduction reduces_xy with
+    | inl h_eq => simp_all
+    | inr h =>
+      obtain ⟨u, hu⟩ := h
+      have hux : u < x := by exact OneStepReduction_le hu.1
+      have huy : y ≤ u := by exact ih u hux y hu.2
+      exact LT.lt.le (lt_of_le_of_lt huy hux)
+  exact this w' h
+
+lemma Reduction_len_leq {w w' : Word A} {R : List (Rule A)} (h_reduces : Reduction R w w') :
+  w'.length ≤ w.length := by
+  by_cases h_eq : w = w'
+  · simp_all
+  · apply ReductionOrder.cwl
+    have h_leq : w' ≤ w := Reduction_leq h_reduces
+    grind
+
+lemma OneStepReduction_len_leq {w w' : Word A} {R : List (Rule A)} (h_reduces : OneStepReduction R w w') :
+  w'.length ≤ w.length := by
+  have : Reduction R w w' := Reduction_of_OneStepReduction w w' R h_reduces
+  exact Reduction_len_leq this
+
+
 
 --IRREDUCIBLE ELEMENTS AND NORMAL FORMS
 -- word w is irreducible with respect to R if it is equal to its normal form
@@ -100,12 +148,6 @@ lemma CanonicalReduction_fix_of_Irreducible [DecidableEq A] (w : Word A) (R : Li
 
 
 --LEMMAS ABOUT REDUCTION AND ONESTEPREDUCTION
-
-lemma Reduction_of_OneStepReduction (w u : Word A) (R : List (Rule A)) (h : OneStepReduction R w u) :
-  Reduction R w u := by
-  unfold Reduction
-  exact Relation.ReflTransGen.single h
-
 
 lemma OneStepReduction_ReduceOnce (w : Word A) (R : List (Rule A)) (h_neq : ReduceOnce w R ≠ w) :
   OneStepReduction R w (ReduceOnce w R) := by

@@ -34,6 +34,7 @@ class ReductionOrder (α : Type) [LinearOrder (Word α)] where
   wf : WellFoundedLT (Word α)
   tiₗ : ∀ (l₁ l₂ l : Word α), l₁ < l₂ → (l ++ l₁) < (l ++ l₂)
   tiᵣ : ∀ (l₁ l₂ l : Word α), l₁ < l₂ → (l₁ ++ l) < (l₂ ++ l)
+  cwl : ∀ (l₁ l₂ : Word α), l₁ < l₂ → l₁.length ≤ l₂.length
 
 attribute [instance] ReductionOrder.wf
 

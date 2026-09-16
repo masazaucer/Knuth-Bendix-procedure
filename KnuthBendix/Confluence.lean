@@ -151,10 +151,90 @@ lemma Confluent_iff_LocallyConfluent (R : List (Rule A)) : Confluent R ↔ Local
     exact h_confluent w u v (Reduction_of_OneStepReduction w u R reduceOS_wu)
       (Reduction_of_OneStepReduction w v R reduceOS_wv)
   · intro h_loc_conf w u v reduce_wu reduce_wv
-    sorry
+    let C : Word A → Prop := fun w ↦ ∀ v u : Word A,
+    (Reduction R) w v →
+    (Reduction R) w u →
+    (Relation.Join (Reduction R)) v u
+    have confluence_at_word : C w := by
+      apply WellFounded.fix (C := C) ReductionOrder.wf.wf
+      unfold C
+      intro x ih v u red_xv red_xu
+      by_cases h_eq : x = v ∨ x = u
+      · cases h_eq with
+      | inl h_eq_v =>
+        rw [h_eq_v] at red_xu
+        use u
+        exact ⟨red_xu, by unfold Reduction; exact Relation.ReflTransGen.refl⟩
+      | inr h_eq_u =>
+        rw [h_eq_u] at red_xv
+        use v
+        exact ⟨by unfold Reduction; exact Relation.ReflTransGen.refl, red_xv⟩
+      · push Not at h_eq
+        obtain ⟨u', hu⟩ := Or.resolve_left (step_of_reduction red_xu) h_eq.2
+        obtain ⟨v', hv⟩ := Or.resolve_left (step_of_reduction red_xv) h_eq.1
+        obtain ⟨t', ht'⟩ := h_loc_conf x v' u' hv.1 hu.1
+        obtain ⟨tu, htu⟩ := ih u' (OneStepReduction_le hu.1) t' u ht'.2 hu.2
+        obtain ⟨tv, htv⟩ := ih v' (OneStepReduction_le hv.1) t' v ht'.1 hv.2
+        have h_t_le_x : t' < x := by
+          have t'_leq_u' : t' ≤ u' := by exact Reduction_leq ht'.2
+          have u'_le_x : u' < x := by exact OneStepReduction_le hu.1
+          exact lt_of_le_of_lt t'_leq_u' u'_le_x
+        obtain ⟨t, ht⟩ := ih t' h_t_le_x tv tu htv.1 htu.1
+        use t
+        constructor
+        · exact Relation.ReflTransGen.trans htv.2 ht.1
+        · exact Relation.ReflTransGen.trans htu.2 ht.2
+    exact confluence_at_word u v reduce_wu reduce_wv
+
 
 lemma k_Confluent_iff_k_LocallyConfluent (k : Nat) (R : List (Rule A)) :
-  k_Confluent k R ↔ k_LocallyConfluent k R := by sorry
+  k_Confluent k R ↔ k_LocallyConfluent k R := by
+  constructor
+  · intro h_confluent w u v h_len OSR_wu OSR_wv
+    exact h_confluent w u v h_len (Reduction_of_OneStepReduction w u R OSR_wu)
+      (Reduction_of_OneStepReduction w v R OSR_wv)
+  · intro h_loc_conf w u v h_len reduce_wu reduce_wv
+    let C : Word A → Prop := fun x ↦ ∀ y z : Word A,
+    x.length ≤ k →
+    (Reduction R) x y →
+    (Reduction R) x z →
+    (Relation.Join (Reduction R)) y z
+    have confluence_at_word : C w := by
+      apply WellFounded.fix (C := C) ReductionOrder.wf.wf
+      unfold C
+      intro x ih v u x_len red_xv red_xu
+      by_cases h_eq : x = v ∨ x = u
+      · cases h_eq with
+      | inl h_eq_v =>
+        rw [h_eq_v] at red_xu
+        use u
+        exact ⟨red_xu, by unfold Reduction; exact Relation.ReflTransGen.refl⟩
+      | inr h_eq_u =>
+        rw [h_eq_u] at red_xv
+        use v
+        exact ⟨by unfold Reduction; exact Relation.ReflTransGen.refl, red_xv⟩
+      · push Not at h_eq
+        obtain ⟨u', hu⟩ := Or.resolve_left (step_of_reduction red_xu) h_eq.2
+        obtain ⟨v', hv⟩ := Or.resolve_left (step_of_reduction red_xv) h_eq.1
+        obtain ⟨t', ht'⟩ := h_loc_conf x v' u' x_len hv.1 hu.1
+        have u'_leq_k : u'.length ≤ k := by
+          exact Nat.le_trans (OneStepReduction_len_leq hu.1) x_len
+        have v'_leq_k : v'.length ≤ k := by
+          exact Nat.le_trans (OneStepReduction_len_leq hv.1) x_len
+        obtain ⟨tu, htu⟩ := ih u' (OneStepReduction_le hu.1) t' u u'_leq_k ht'.2 hu.2
+        obtain ⟨tv, htv⟩ := ih v' (OneStepReduction_le hv.1) t' v v'_leq_k ht'.1 hv.2
+        have t_le_x : t' < x := by
+          have t'_leq_u' : t' ≤ u' := by exact Reduction_leq ht'.2
+          have u'_le_x : u' < x := by exact OneStepReduction_le hu.1
+          exact lt_of_le_of_lt t'_leq_u' u'_le_x
+        have t_leq_k : t'.length ≤ k := by
+          exact Nat.le_trans (Reduction_len_leq ht'.1) v'_leq_k
+        obtain ⟨t, ht⟩ := ih t' t_le_x tv tu t_leq_k htv.1 htu.1
+        use t
+        constructor
+        · exact Relation.ReflTransGen.trans htv.2 ht.1
+        · exact Relation.ReflTransGen.trans htu.2 ht.2
+    exact confluence_at_word u v h_len reduce_wu reduce_wv
 
 
 --CONNECTING COMPLETENESS WITH RULES
