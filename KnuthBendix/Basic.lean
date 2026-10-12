@@ -32,9 +32,15 @@ structure Overlap {A : Type} (w u : Word A) where
 -- we define it on words so that we can use concatenation of lists
 class ReductionOrder (α : Type) [LinearOrder (Word α)] where
   wf : WellFoundedLT (Word α)
-  tiₗ : ∀ (l₁ l₂ l : Word α), l₁ < l₂ → (l ++ l₁) < (l ++ l₂)
-  tiᵣ : ∀ (l₁ l₂ l : Word α), l₁ < l₂ → (l₁ ++ l) < (l₂ ++ l)
-  cwl : ∀ (l₁ l₂ : Word α), l₁ < l₂ → l₁.length ≤ l₂.length
+  tiₗ : ∀ (l₁ l₂ l : Word α), l₁ ≤ l₂ → (l ++ l₁) ≤ (l ++ l₂)
+  tiᵣ : ∀ (l₁ l₂ l : Word α), l₁ ≤ l₂ → (l₁ ++ l) ≤ (l₂ ++ l)
+
+class ReductionOrderLen (α : Type) [LinearOrder (Word α)] where
+  wf : WellFoundedLT (Word α)
+  tiₗ : ∀ (l₁ l₂ l : Word α), l₁ ≤ l₂ → (l ++ l₁) ≤ (l ++ l₂)
+  tiᵣ : ∀ (l₁ l₂ l : Word α), l₁ ≤ l₂ → (l₁ ++ l) ≤ (l₂ ++ l)
+  cwl : ∀ (l₁ l₂ : Word α), l₁ ≤ l₂ → l₁.length ≤ l₂.length
+
 
 attribute [instance] ReductionOrder.wf
 
@@ -102,7 +108,7 @@ lemma OrderOnRules (r₁ r₂ : Rule A) :
 
 -- MAKE OVERLAP AND RULE
 
-def MakeOverlap (w v y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ [])
+def MakeOverlap {w v : Word A} (y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ [])
   (h_empty : w_suf = [] ∨ v_suf = []) (h_eq : w = w_pre ++ y ++ w_suf ∧ v = y ++ v_suf) :
   Overlap w v := {
     overlap := y,
@@ -128,47 +134,18 @@ lemma MakeRule_symm (u v : Word A) (h : u ≠ v) : MakeRule u v h = MakeRule v u
   have h_eq_min : min u v = min v u := by exact min_comm u v
   exact Rule.ext h_eq_max h_eq_min
 
-lemma LHS_leq (u v : Word A) (h_neq : u ≠ v) :
-  let r : Rule A := MakeRule u v h_neq;
-  r.lhs ≤ max u v := by
-  simp only [le_sup_iff]
-  by_cases h_leq : u ≤ v
-  · have : (MakeRule u v h_neq).lhs = v := by
-      unfold MakeRule
-      simp only [sup_eq_right]
-      exact h_leq
-    rw [this]
-    right
-    trivial
-  · have : (MakeRule u v h_neq).lhs = u := by
-      unfold MakeRule
-      simp only [sup_eq_left]
-      exact Std.le_of_not_ge h_leq
-    rw [this]
-    left
-    trivial
+lemma LHS_eq (u v : Word A) (h_neq : u ≠ v) :
+  let r := MakeRule u v h_neq;
+  r.lhs = max u v := by
+  unfold MakeRule
+  simp +zetaDelta
 
-lemma RHS_leq (u v : Word A) (h_neq : u ≠ v) :
+
+lemma RHS_eq (u v : Word A) (h_neq : u ≠ v) :
   let r : Rule A := MakeRule u v h_neq;
-  r.rhs ≤ min u v := by
-  simp only [le_inf_iff]
-  by_cases h_leq : u ≤ v
-  · have : (MakeRule u v h_neq).rhs = u := by
-      unfold MakeRule
-      simp only [inf_eq_left]
-      exact h_leq
-    rw [this]
-    constructor
-    · trivial
-    · exact le_of_le_of_eq h_leq rfl
-  · have : (MakeRule u v h_neq).rhs = v := by
-      unfold MakeRule
-      simp only [inf_eq_right]
-      exact Std.le_of_not_ge h_leq
-    rw [this]
-    constructor
-    · exact Std.le_of_not_ge h_leq
-    · trivial
+  r.rhs = min u v := by
+  unfold MakeRule
+  simp +zetaDelta
 
 
 variable [ReductionOrder A]
@@ -176,17 +153,23 @@ variable [ReductionOrder A]
 
 --TRANSLATION INVARIANCE (LESS OR EQUAL)
 
-lemma til_leq (l₁ l₂ l : Word A) (h : l₁ ≤ l₂) : (l ++ l₁) ≤ (l ++ l₂) := by
-  by_cases h_lt : l₁ < l₂
-  · exact le_of_lt (ReductionOrder.tiₗ l₁ l₂ l h_lt)
-  · have h_eq : l₁ = l₂ := le_antisymm h (le_of_not_gt h_lt)
-    rw [h_eq]
+lemma til_le {l₁ l₂ l : Word A} (h : l₁ < l₂) : (l ++ l₁) < (l ++ l₂) := by
+  refine Std.lt_iff_le_and_ne.mpr ?_
+  constructor
+  · apply ReductionOrder.tiₗ
+    exact Std.le_of_lt h
+  · by_contra h_eq
+    have : l₁ = l₂ := by exact List.append_cancel_left h_eq
+    simp_all
 
-lemma tir_leq (l₁ l₂ l : Word A) (h : l₁ ≤ l₂) : (l₁ ++ l) ≤ (l₂ ++ l) := by
-  by_cases h_lt : l₁ < l₂
-  · exact le_of_lt (ReductionOrder.tiᵣ l₁ l₂ l h_lt)
-  · have h_eq : l₁ = l₂ := le_antisymm h (le_of_not_gt h_lt)
-    rw [h_eq]
+lemma tir_le {l₁ l₂ l : Word A} (h : l₁ < l₂) : (l₁ ++ l) < (l₂ ++ l) := by
+  refine Std.lt_iff_le_and_ne.mpr ?_
+  constructor
+  · apply ReductionOrder.tiᵣ
+    exact Std.le_of_lt h
+  · by_contra h_eq
+    have : l₁ = l₂ := by exact List.append_cancel_right h_eq
+    simp_all
 
 
 --LEMMAS ABOUT EMPTY WORD BEING THE LEAST ELEMENT
@@ -206,7 +189,7 @@ lemma pow_desc (w : Word A) (h : w < ([] : Word A)) :
     simp_all
   | succ m ih =>
     unfold pow
-    exact ReductionOrder.tiᵣ (pow w (m + 1)) (pow w m) w ih
+    exact tir_le ih
 
 lemma EmptyWordBottom (w : Word A) : [] ≤ w := by
   by_contra h
