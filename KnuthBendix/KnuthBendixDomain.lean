@@ -17,7 +17,7 @@ def KnuthBendix_dom (R : List (Rule A)) : Prop :=
 
 --LEMMAS ABOUT KNUTH-BENDIX DOMAIN
 
-lemma OSKB_fixpoint_of_succ_eq (R : List (Rule A)) (h_succ_eq : (OneStepKnuthBendix^[n] R) = (OneStepKnuthBendix^[n + 1] R)) : ∀ i ≥ n,
+lemma OSKB_fixpoint_of_succ_eq {n} (R : List (Rule A)) (h_succ_eq : (OneStepKnuthBendix^[n] R) = (OneStepKnuthBendix^[n + 1] R)) : ∀ i ≥ n,
   (OneStepKnuthBendix^[i] R) = (OneStepKnuthBendix^[n] R) := by
   have h (j : Nat) : (OneStepKnuthBendix^[n + j] R) = (OneStepKnuthBendix^[n] R) := by
     induction j with

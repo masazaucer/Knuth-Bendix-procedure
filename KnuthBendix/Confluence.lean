@@ -45,24 +45,12 @@ def k_LocallyConfluent (k : Nat) (R : List (Rule A)) : Prop :=
     (OneStepReduction R) w u →
     (Relation.Join (Reduction R)) v u
 
-
-lemma Irreducible_fix {w t : Word A} {R : List (Rule A)} (h_irr : w ∈ IrrSet R) (h_reduces : Reduction R w t) : w = t := by
-  unfold IrrSet at h_irr
-  unfold Irreducible at h_irr
-  unfold Reduction at h_reduces
-  cases Relation.reflTransGen_iff_eq_or_transGen.mp h_reduces with
-  | inl h_eq => simp_all
-  | inr h =>
-    have : ∃ u, OneStepReduction R w u := by
-      obtain ⟨u, hu⟩ := Relation.TransGen.head'_iff.mp h
-      exact ⟨u, hu.1⟩
-    obtain ⟨w', h_onestep⟩  := this
-    obtain ⟨r, r_mem, u, v, h⟩ := rule_of_OneStepReduction R h_onestep
-    specialize h_irr r r_mem
-    grind
+section Equivalences
+variable {k : Nat}
+variable {R : List (Rule A)}
 
 -- LEMMAS ABOUT CONFLUENCE, LOCAL CONFLUENCE AND COMPLETENESS
-lemma Confluent_iff_Complete (R : List (Rule A)) : Confluent R ↔ Complete R := by
+lemma Confluent_iff_Complete : Confluent R ↔ Complete R := by
   constructor
   · intro h_confluent w
     use (CanonicalReduction w R)
@@ -96,8 +84,8 @@ lemma Confluent_iff_Complete (R : List (Rule A)) : Confluent R ↔ Complete R :=
       by rw [CR_eq]; exact reduces_to_CanonicalReduction v R⟩
 
 
-lemma k_Confluent_iff_k_Complete (k : Nat) (R : List (Rule A)) :
-  k_Confluent k R ↔ k_Complete k R := by
+lemma k_Confluent_iff_k_Complete :
+    k_Confluent k R ↔ k_Complete k R := by
   constructor
   · intro k_confluent w h_len
     use CanonicalReduction w R
@@ -125,27 +113,7 @@ lemma k_Confluent_iff_k_Complete (k : Nat) (R : List (Rule A)) :
     exact ⟨by rw [CR_eq]; exact reduces_to_CanonicalReduction v R,
       reduces_to_CanonicalReduction u R⟩
 
-lemma k_Complete_of_Complete (k : Nat) (R : List (Rule A)) (h_complete : Complete R) :
-  k_Complete k R := by
-  intro w h_len
-  exact h_complete w
-
-lemma Complete_of_k_Complete (R : List (Rule A)) (h_k_complete : ∀ k : Nat, k_Complete k R) :
-  Complete R := by
-  intro w
-  exact h_k_complete w.length w (by trivial)
-
-lemma k_Confluent_of_Confluent (k : Nat) (R : List (Rule A)) (h_confluent : Confluent R) :
-  k_Confluent k R := by
-  intro w u v h_len reduces_wu reduces_wv
-  exact h_confluent w u v reduces_wu reduces_wv
-
-lemma Confluent_of_k_Confluent (R : List (Rule A)) (h_k_confluent : ∀ k : Nat, k_Confluent k R) :
-  Confluent R := by
-  intro w u v reduces_wu reduces_wv
-  exact h_k_confluent (w.length) w u v (by trivial) reduces_wu reduces_wv
-
-lemma Confluent_iff_LocallyConfluent (R : List (Rule A)) : Confluent R ↔ LocallyConfluent R := by
+lemma Confluent_iff_LocallyConfluent : Confluent R ↔ LocallyConfluent R := by
   constructor
   · intro h_confluent w u v reduceOS_wu reduceOS_wv
     exact h_confluent w u v (Reduction_of_OneStepReduction w u R reduceOS_wu)
@@ -187,11 +155,12 @@ lemma Confluent_iff_LocallyConfluent (R : List (Rule A)) : Confluent R ↔ Local
     exact confluence_at_word u v reduce_wu reduce_wv
 
 
-lemma k_Confluent_iff_k_LocallyConfluent (k : Nat) (R : List (Rule A)) :
-  k_Confluent k R ↔ k_LocallyConfluent k R := by
+lemma k_Confluent_iff_k_LocallyConfluent [ReductionOrderLen A] :
+    k_Confluent k R ↔ k_LocallyConfluent k R := by
   constructor
   · intro h_confluent w u v h_len OSR_wu OSR_wv
-    exact h_confluent w u v h_len (Reduction_of_OneStepReduction w u R OSR_wu)
+    exact h_confluent w u v h_len
+      (Reduction_of_OneStepReduction w u R OSR_wu)
       (Reduction_of_OneStepReduction w v R OSR_wv)
   · intro h_loc_conf w u v h_len reduce_wu reduce_wv
     let C : Word A → Prop := fun x ↦ ∀ y z : Word A,
@@ -236,6 +205,37 @@ lemma k_Confluent_iff_k_LocallyConfluent (k : Nat) (R : List (Rule A)) :
         · exact Relation.ReflTransGen.trans htu.2 ht.2
     exact confluence_at_word u v h_len reduce_wu reduce_wv
 
+lemma k_Complete_of_Complete (k : Nat) (R : List (Rule A)) (h_complete : Complete R) :
+  k_Complete k R := by
+  intro w h_len
+  exact h_complete w
+
+lemma Complete_of_k_Complete (R : List (Rule A)) (h_k_complete : ∀ k : Nat, k_Complete k R) :
+  Complete R := by
+  intro w
+  exact h_k_complete w.length w (by trivial)
+
+lemma k_Confluent_of_Confluent (k : Nat) (R : List (Rule A)) (h_confluent : Confluent R) :
+  k_Confluent k R := by
+  intro w u v h_len reduces_wu reduces_wv
+  exact h_confluent w u v reduces_wu reduces_wv
+
+lemma Confluent_of_k_Confluent (R : List (Rule A)) (h_k_confluent : ∀ k : Nat, k_Confluent k R) :
+  Confluent R := by
+  intro w u v reduces_wu reduces_wv
+  exact h_k_confluent (w.length) w u v (by trivial) reduces_wu reduces_wv
+
+lemma k_LocConfluent_of_LocConfluent (k : Nat) (R : List (Rule A)) (h_confluent : LocallyConfluent R) :
+  k_LocallyConfluent k R := by
+  intro w u v h_len reduces_wu reduces_wv
+  exact h_confluent w u v reduces_wu reduces_wv
+
+lemma LocConfluent_of_k_LocConfluent (R : List (Rule A)) (h_k_confluent : ∀ k : Nat, k_LocallyConfluent k R) :
+  LocallyConfluent R := by
+  intro w u v reduces_wu reduces_wv
+  exact h_k_confluent (w.length) w u v (by trivial) reduces_wu reduces_wv
+
+
 
 --CONNECTING COMPLETENESS WITH RULES
 --The order of the rules matters!
@@ -247,6 +247,7 @@ def k_CompleteRules (k : Nat) (r r' : Rule A) (R : List (Rule A)) : Prop :=
   ∀ o : Overlap r.lhs r'.lhs,
   List.length (o.prefix₁ ++ o.overlap ++ o.suffix₁ ++ o.suffix₂) ≤ k →
   Relation.Join (Reduction R) (r.rhs ++ o.suffix₂) (o.prefix₁ ++ r'.rhs ++ o.suffix₁)
+
 
 lemma prefix_compare {w v₁ v₂ u₁ u₂ : Word A}
   (hv : w = v₁ ++ v₂) (hu : w = u₁ ++ u₂) : v₁ <+: u₁ ∨ u₁ <+: v₁ := by
@@ -278,7 +279,7 @@ lemma technical_lemma' {w v₁ v₂ u₁ u₂ v u : Word A} (hv : w = v₁ ++ v 
           have : v₁ ++ v = v₁ ++ (x₁ ++ u ++ x₂) := by exact List.append_cancel_right this
           exact List.append_cancel_left this
         · simp
-      let o : Overlap v u := MakeOverlap v u u x₁ x₂ [] u_nonempty (by right; trivial) h_eq
+      let o : Overlap v u := MakeOverlap u x₁ x₂ [] u_nonempty (by right; trivial) h_eq
       refine Or.inr ?_
       use o
       use v₂
@@ -310,7 +311,7 @@ lemma technical_lemma' {w v₁ v₂ u₁ u₂ v u : Word A} (hv : w = v₁ ++ v 
           have : u₁ ++ u ++ u₂ = u₁ ++ (y ++ z) ++ u₂ := by grind
           have : u₁ ++ u = u₁ ++ (y ++ z):= by exact List.append_cancel_right this
           exact List.append_cancel_left this
-      let o : Overlap v u := MakeOverlap v u y x₁ [] z y_nonempty (by left; trivial) h_eq
+      let o : Overlap v u := MakeOverlap y x₁ [] z y_nonempty (by left; trivial) h_eq
       refine Or.inr ?_
       use o
       use u₂
@@ -371,16 +372,16 @@ Relation.Join (Reduction R) v u := by
 
 
 lemma localConfluence_and_Rules (R : List (Rule A)) :
-  LocallyConfluent R ↔ ∀ r r' : Rule A, r ∈ R → r' ∈ R → CompleteRules r r' R := by
+  LocallyConfluent R ↔ ∀ r ∈ R, ∀ r' ∈ R, CompleteRules r r' R := by
   constructor
-  · intro h_LocConfluent r r' hr hr' o
+  · intro h_LocConfluent r hr r' hr' o
     let w := o.prefix₁ ++ o.overlap ++ o.suffix₁ ++ o.suffix₂
     let u := r.rhs ++ o.suffix₂
     let v := o.prefix₁ ++ r'.rhs ++ o.suffix₁
     have h_reduces_wv : OneStepReduction R w v := by
-      exact overlap_reduces' R r r' o ⟨hr, hr'⟩
+      exact overlap_reduces' R r r' o hr'
     have h_reduces_wu : OneStepReduction R w u := by
-      exact overlap_reduces R r r' o ⟨hr, hr'⟩
+      exact overlap_reduces R r r' o hr
     specialize h_LocConfluent w u v h_reduces_wu h_reduces_wv
     exact h_LocConfluent
   · intro h_complete_rules w u v h_reduces_wu h_reduces_wv
@@ -392,11 +393,11 @@ lemma localConfluence_and_Rules (R : List (Rule A)) :
         (RelationJoin_of_NonOverlap R r r' r_mem r_mem' hr.1 hr.2 hr'.1 hr'.2 h_pref_v)
     · exact RelationJoin_of_NonOverlap R r' r r_mem' r_mem hr'.1 hr'.2 hr.1 hr.2 h_pref_u
     · have h_complete : CompleteRules r r' R := by
-        exact h_complete_rules r r' r_mem r_mem'
+        exact h_complete_rules r r_mem r' r_mem'
       refine relation_join_symm R ?_
       exact RelationJoin_of_Overlap R r r' h_complete hr.2 hr'.2 h_overlap_vu
     · have h_complete : CompleteRules r' r R := by
-        exact h_complete_rules r' r r_mem' r_mem
+        exact h_complete_rules r' r_mem' r r_mem
       exact RelationJoin_of_Overlap R r' r h_complete hr'.2 hr.2 h_overlap_uv
 
 lemma RelationJoin_of_kOverlap {w v₁ v₂ v u₁ u₂ u} {k : Nat} (R : List (Rule A)) (r r' : Rule A)
@@ -423,15 +424,15 @@ lemma RelationJoin_of_kOverlap {w v₁ v₂ v u₁ u₂ u} {k : Nat} (R : List (
 
 
 lemma kLocalConfluence_and_Rules (k : Nat) (R : List (Rule A)) :
-  k_LocallyConfluent k R ↔ ∀ r r' : Rule A, r ∈ R → r' ∈ R → k_CompleteRules k r r' R := by
+  k_LocallyConfluent k R ↔ ∀ r ∈ R, ∀ r' ∈ R, k_CompleteRules k r r' R := by
   constructor
-  · intro h_LocConfluent r r' hr hr' o h_len
+  · intro h_LocConfluent r hr r' hr' o h_len
     let w := o.prefix₁ ++ o.overlap ++ o.suffix₁ ++ o.suffix₂
     let v := r.rhs ++ o.suffix₂
     let u := o.prefix₁ ++ r'.rhs ++ o.suffix₁
     specialize h_LocConfluent w v u h_len
-    have h_reduces_wv : OneStepReduction R w v := overlap_reduces R r r' o ⟨hr, hr'⟩
-    have h_reduces_wu : OneStepReduction R w u := overlap_reduces' R r r' o ⟨hr, hr'⟩
+    have h_reduces_wv : OneStepReduction R w v := overlap_reduces R r r' o hr
+    have h_reduces_wu : OneStepReduction R w u := overlap_reduces' R r r' o hr'
     specialize h_LocConfluent h_reduces_wv h_reduces_wu
     apply h_LocConfluent
   · intro h_complete_rules w v u h_len h_reduces_wv h_reduces_wu
@@ -442,9 +443,9 @@ lemma kLocalConfluence_and_Rules (k : Nat) (R : List (Rule A)) :
     · exact RelationJoin_of_NonOverlap R r r' r_mem r_mem' hr.1 hr.2 hr'.1 hr'.2 h_pref_v
     · exact relation_join_symm R  (RelationJoin_of_NonOverlap R r' r r_mem' r_mem hr'.1 hr'.2 hr.1 hr.2 h_pref_u)
     · have h_complete : k_CompleteRules k r r' R := by
-        exact h_complete_rules r r' r_mem r_mem'
+        exact h_complete_rules r r_mem r' r_mem'
       exact RelationJoin_of_kOverlap R r r' h_complete h_len hr.2 hr'.2 h_overlap_vu
     · have h_complete : k_CompleteRules k r' r R := by
-        exact h_complete_rules r' r r_mem' r_mem
+        exact h_complete_rules r' r_mem' r r_mem
       refine relation_join_symm R ?_
       exact RelationJoin_of_kOverlap R r' r h_complete h_len hr'.2 hr.2 h_overlap_uv
