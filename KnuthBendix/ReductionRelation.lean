@@ -1,6 +1,9 @@
 module
 
 public import KnuthBendix.CanonicalReduction
+public import Mathlib.Data.Finite.Defs
+public import Mathlib.Data.Set.Finite.List
+
 
 @[expose] public section
 
@@ -43,10 +46,14 @@ lemma rule_of_OneStepReduction (R : List (Rule A)) : OneStepReduction R w w' →
   | mk r _ =>
   grind
 
-lemma step_of_reduction {w w' : Word A} {R : List (Rule A)} (h : Reduction R w w') :
+lemma step_of_reduction {w w' : Word A} {R : List (Rule A)} : Reduction R w w' ↔
     w = w' ∨ (∃ u : Word A, OneStepReduction R w u ∧ Reduction R u w') := by
   unfold Reduction
-  exact Relation.ReflTransGen.cases_head_iff.mp h
+  exact Relation.ReflTransGen.cases_head_iff
+
+lemma Reduction_of_eq {w w' : Word A} {R : List (Rule A)} (h_eq : w = w') : Reduction R w w' := by
+  apply step_of_reduction.mpr
+  exact Or.inl h_eq
 
 lemma OneStepReduction_le {w w' : Word A} {R : List (Rule A)} (h : OneStepReduction R w w') :
    w' < w := by
@@ -62,7 +69,7 @@ lemma Reduction_leq {w w' : Word A} {R : List (Rule A)} (h : Reduction R w w') :
   have : C w := by
     apply WellFounded.fix (C := C) ReductionOrder.wf.wf
     intro x ih y reduces_xy
-    cases step_of_reduction reduces_xy with
+    cases step_of_reduction.mp reduces_xy with
     | inl h_eq => simp_all
     | inr h =>
       obtain ⟨u, hu⟩ := h
@@ -82,6 +89,40 @@ lemma OneStepReduction_len_leq [ReductionOrderLen A] {w w' : Word A} {R : List (
   have : Reduction R w w' := Reduction_of_OneStepReduction w w' R h
   exact Reduction_len_leq this
 
+lemma OSR_of_OSR_sub {w w' : Word A} {R R' : List (Rule A)} (h_sub : R ⊆ R') (h : OneStepReduction R w w') :
+    OneStepReduction R' w w' := by
+  unfold OneStepReduction at *
+  induction h with
+  | mk w w' u₁ u₂ h =>
+    induction h with
+    | mk r r_mem =>
+      have r_mem' : r ∈ R' := by exact Multiset.mem_coe.mp (h_sub r_mem)
+      have : SimpleReduction R' r.lhs r.rhs := by exact SimpleReduction.mk r (h_sub r_mem)
+      exact CongruenceClosure.mk r.lhs r.rhs u₁ u₂ this
+
+
+lemma Reduction_of_Reduction_sub {w w' : Word A} {R R' : List (Rule A)} (h_sub : R ⊆ R') (h : Reduction R w w') :
+    Reduction R' w w' := by
+  --unfold Reduction
+  let C : Word A → Prop := fun x ↦ ∀ x', Reduction R x x' → Reduction R' x x'
+  have : C w := by
+    apply WellFounded.fix ReductionOrder.wf.wf
+    intro x ih
+    unfold C at *
+    intro z reduces_xz
+    cases step_of_reduction.mp reduces_xz with
+    | inl hl =>
+      exact Reduction_of_eq hl
+    | inr hr =>
+      obtain ⟨u, hu⟩ := hr
+      have OSR : OneStepReduction R' x u := by exact OSR_of_OSR_sub h_sub hu.1
+      have reduces' : Reduction R' u z := by
+        have u_le_x : u < x := by exact OneStepReduction_le OSR
+        exact ih u u_le_x z hu.2
+      apply step_of_reduction.mpr
+      refine Or.inr ?_
+      use u
+  exact this w' h
 
 
 --IRREDUCIBLE ELEMENTS AND NORMAL FORMS
@@ -102,6 +143,12 @@ noncomputable def NormalForm (w : Word A) (R : List (Rule A)) (h_unique_res : Un
 
 
 --LEMMAS ABOUT IRREDUCIBLES AND NORMAL FORMS
+lemma kIrrSet_fin [Finite A] (k : Nat) (R : List (Rule A)) : Set.Finite (kIrrSet k R) := by
+  have len_fin : {w : Word A | w.length ≤ k}.Finite := by
+    exact List.finite_length_le A k
+  exact Set.Finite.inter_of_left len_fin {w | Irreducible R w}
+
+
 lemma Irreducible_fix {w t : Word A} {R : List (Rule A)} (h_irr : Irreducible R w) (h_reduces : Reduction R w t) : w = t := by
   unfold Irreducible at h_irr
   unfold Reduction at h_reduces

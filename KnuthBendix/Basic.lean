@@ -43,34 +43,6 @@ attribute [instance] ReductionOrder.wf
 
 variable {A : Type}
 
-lemma ListGetRestDec [DecidableEq A] {w u v : Word A} : List.getRest w u = some v ↔ w = u ++ v := by
-  constructor
-  · intro h
-    induction u generalizing w v with
-    | nil =>
-      unfold List.getRest at h
-      grind
-    | cons x u' ih =>
-      cases w with
-      | nil =>
-        unfold List.getRest at h
-        grind
-      | cons y w' =>
-        unfold List.getRest at h
-        grind
-  · intro h
-    induction u generalizing w v with
-    | nil =>
-      unfold List.getRest
-      grind
-    | cons x u' ih =>
-      unfold List.getRest
-      cases w with
-      | nil =>
-        grind
-      | cons y w' =>
-        grind
-
 variable [LinearOrder (Word A)]
 
 open Function
@@ -144,11 +116,19 @@ lemma RHS_eq (u v : Word A) (h_neq : u ≠ v) :
   unfold MakeRule
   simp +zetaDelta
 
+lemma b_nontriv {u v : Word A} (o : Overlap u v) : (o.overlap ++ o.suffix₁) ≠ [] := by
+  exact List.append_ne_nil_of_left_ne_nil o.nontriv o.suffix₁
+
+lemma v_nontriv {u v : Word A} (o : Overlap u v) : v ≠ [] := by
+  rw [o.eq.2]
+  exact List.append_ne_nil_of_left_ne_nil o.nontriv o.suffix₂
+
+
 
 variable [ReductionOrder A]
 
 
---TRANSLATION INVARIANCE (LESS OR EQUAL)
+--TRANSLATION INVARIANCE (STRICT)
 
 lemma til_le {l₁ l₂ l : Word A} (h : l₁ < l₂) : (l ++ l₁) < (l ++ l₂) := by
   refine Std.lt_iff_le_and_ne.mpr ?_
@@ -252,3 +232,84 @@ lemma lhsNonempty (r : Rule A) : r.lhs ≠ [] := by
     exact rhs_lt_lhs
   | inr h2 =>
     exact Std.lt_trans h2 rhs_lt_lhs
+
+
+section ListGetRest
+variable {A : Type}
+variable [DecidableEq A]
+
+lemma ListGetRestDec {w u v : Word A} : List.getRest w u = some v ↔ w = u ++ v := by
+  constructor
+  · intro h
+    induction u generalizing w v with
+    | nil =>
+      unfold List.getRest at h
+      grind
+    | cons x u' ih =>
+      cases w with
+      | nil =>
+        unfold List.getRest at h
+        grind
+      | cons y w' =>
+        unfold List.getRest at h
+        grind
+  · intro h
+    induction u generalizing w v with
+    | nil =>
+      unfold List.getRest
+      grind
+    | cons x u' ih =>
+      unfold List.getRest
+      cases w with
+      | nil =>
+        grind
+      | cons y w' =>
+        grind
+
+
+lemma ListGetRest_some {u v y u' v' : Word A} (hu : u = y ++ u') (hv : v = y ++ v') :
+    List.getRest u v = some u' ↔ v' = [] := by
+  constructor
+  · intro h
+    rw [ListGetRestDec] at h
+    simp_all
+  · intro h
+    rw [h] at hv
+    simp only [List.append_nil] at hv
+    rw [←hv] at hu
+    exact ListGetRestDec.mpr hu
+
+lemma ListGetRest_none {v y v' : Word A} (hv : v = y ++ v') :
+    List.getRest y v = none ↔ v' ≠ [] := by
+  constructor
+  · intro h
+    by_contra hv'_empty
+    have : List.getRest y v = some [] := by
+      have : y = y ++ [] := by grind
+      rw [this]
+      exact (ListGetRest_some (by trivial) hv).mpr hv'_empty
+    rw [this] at h
+    contradiction
+  · intro hv'_nonempty
+    cases Option.eq_none_or_eq_some (List.getRest y v) with
+    | inl h => exact h
+    | inr h =>
+      obtain ⟨u', hu⟩ := h
+      rw [ListGetRestDec] at hu
+      rw [hu] at hv
+      simp at hv
+      simp_all
+
+lemma ListGetRest_none' {u u' v y v' : Word A} (hu : u = y ++ u') (hv : v = y ++ v') (hu' : u' = []) :
+    List.getRest u v = none ↔ v' ≠ [] := by
+  rw [hu'] at hu
+  simp only [List.append_nil] at hu
+  rw [hu]
+  exact ListGetRest_none hv
+
+lemma MakeOverlap_eq {u v : Word A} (o : Overlap u v) :
+    MakeOverlap o.overlap o.prefix₁ o.suffix₁ o.suffix₂ o.nontriv o.empty o.eq = o := by
+  unfold MakeOverlap
+  simp
+
+end ListGetRest

@@ -138,8 +138,8 @@ lemma Confluent_iff_LocallyConfluent : Confluent R ↔ LocallyConfluent R := by
         use v
         exact ⟨by unfold Reduction; exact Relation.ReflTransGen.refl, red_xv⟩
       · push Not at h_eq
-        obtain ⟨u', hu⟩ := Or.resolve_left (step_of_reduction red_xu) h_eq.2
-        obtain ⟨v', hv⟩ := Or.resolve_left (step_of_reduction red_xv) h_eq.1
+        obtain ⟨u', hu⟩ := Or.resolve_left (step_of_reduction.mp red_xu) h_eq.2
+        obtain ⟨v', hv⟩ := Or.resolve_left (step_of_reduction.mp red_xv) h_eq.1
         obtain ⟨t', ht'⟩ := h_loc_conf x v' u' hv.1 hu.1
         obtain ⟨tu, htu⟩ := ih u' (OneStepReduction_le hu.1) t' u ht'.2 hu.2
         obtain ⟨tv, htv⟩ := ih v' (OneStepReduction_le hv.1) t' v ht'.1 hv.2
@@ -183,8 +183,8 @@ lemma k_Confluent_iff_k_LocallyConfluent [ReductionOrderLen A] :
         use v
         exact ⟨by unfold Reduction; exact Relation.ReflTransGen.refl, red_xv⟩
       · push Not at h_eq
-        obtain ⟨u', hu⟩ := Or.resolve_left (step_of_reduction red_xu) h_eq.2
-        obtain ⟨v', hv⟩ := Or.resolve_left (step_of_reduction red_xv) h_eq.1
+        obtain ⟨u', hu⟩ := Or.resolve_left (step_of_reduction.mp red_xu) h_eq.2
+        obtain ⟨v', hv⟩ := Or.resolve_left (step_of_reduction.mp red_xv) h_eq.1
         obtain ⟨t', ht'⟩ := h_loc_conf x v' u' x_len hv.1 hu.1
         have u'_leq_k : u'.length ≤ k := by
           exact Nat.le_trans (OneStepReduction_len_leq hu.1) x_len
@@ -449,3 +449,38 @@ lemma kLocalConfluence_and_Rules (k : Nat) (R : List (Rule A)) :
         exact h_complete_rules r' r_mem' r r_mem
       refine relation_join_symm R ?_
       exact RelationJoin_of_kOverlap R r' r h_complete h_len hr'.2 hr.2 h_overlap_uv
+
+lemma CanonicalReduction_neq_of_notRelationJoin {u v : Word A} {R : List (Rule A)} (h_notRelationJoin : ¬Relation.Join (Reduction R) u v) : CanonicalReduction u R ≠ CanonicalReduction v R := by
+  by_contra h_eq
+  let t : Word A := CanonicalReduction u R
+  have h_reduces_ut : Reduction R u t := by exact reduces_to_CanonicalReduction u R
+  have h_reduces_vt : Reduction R v t := by
+    unfold t; rw [h_eq];
+    exact reduces_to_CanonicalReduction v R
+  have : Relation.Join (Reduction R) u v := by use t
+  trivial
+
+
+--TODO : simplify?
+lemma CR_of_Reduction_Irr_Complete {w w' : Word A} {R : List (Rule A)} (h : Reduction R w w')
+    (h_complete : Complete R) (h_irr : Irreducible R w') : w' = CanonicalReduction w R := by
+  have : Reduction R w (CanonicalReduction w R) := by
+    exact reduces_to_CanonicalReduction w R
+  obtain ⟨v, hv⟩ := h_complete w
+  have w'_eq_v : w' = v := by
+    exact hv.2 w' ⟨h_irr, h⟩
+  have CR_eq_v : (CanonicalReduction w R) = v := by
+    exact hv.2 (CanonicalReduction w R) ⟨CR_Irreducible w R, this⟩
+  simp_all
+
+lemma CR_of_Reduction_Irr_kComplete {k : Nat} {w w' : Word A} {R : List (Rule A)}
+    (h_complete : k_Complete k R) (h_len : w.length ≤ k) (h : Reduction R w w')
+    (h_irr : Irreducible R w') : w' = CanonicalReduction w R := by
+  have : Reduction R w (CanonicalReduction w R) := by
+    exact reduces_to_CanonicalReduction w R
+  obtain ⟨v, hv⟩ := h_complete w h_len
+  have w'_eq_v : w' = v := by
+    exact hv.2 w' ⟨h_irr, h⟩
+  have CR_eq_v : (CanonicalReduction w R) = v := by
+    exact hv.2 (CanonicalReduction w R) ⟨CR_Irreducible w R, this⟩
+  simp_all
