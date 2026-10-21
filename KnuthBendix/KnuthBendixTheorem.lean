@@ -7,7 +7,7 @@ public import Mathlib.Data.Set.Finite.Basic
 public import Mathlib.Data.List.Basic
 
 
-variable {A : Type} [LinearOrder (Word A)] [DecidableEq A] [ReductionOrder A]
+variable {A : Type} [Finite A] [LinearOrder (Word A)] [DecidableEq A] [ReductionOrder A]
 
 --#check Test_for_rule_symm
 -- If kIrrSet does not chenge with applying OneStepKnuthBendix then the set of rules is kComplete
@@ -31,13 +31,10 @@ lemma k_Complete_of_kIrrSet_eq_succ [ReductionOrderLen A] (k : Nat) (R : List (R
     simp [r]
     exact CR_neq
   have h_mem : r ∈ OneStepKnuthBendix R := by
-  /-
     refine mem_OSKB_of_mem_CheckOverlaps r₁ r R r₁_mem ?_
     refine mem_CheckOverlaps_of_mem_CheckOverlaps_rules r₂_mem ?_
     refine mem_CheckOverlaps_rules_of_Test_for_rule_some r r₁ r₂ R o ?_
     rw [(Test_for_rule_symm (o.prefix₁ ++ r₂.rhs ++ o.suffix₁) (r₁.rhs ++ o.suffix₂) R), h_Test_for_rule]
-    -/
-    sorry
   have h_len_rlhs : (r.lhs).length ≤ k := by
     have h_max : r.lhs = max (CanonicalReduction u R) (CanonicalReduction v R) := by
       unfold r
@@ -75,38 +72,30 @@ lemma k_Complete_of_kIrrSet_eq_succ [ReductionOrderLen A] (k : Nat) (R : List (R
     cases this with
     | inl h =>
       have : r.lhs ∈ IrrSet R := by rw [h]; exact CR_Irreducible u R
+      rw [kIrrSet_mem]
       exact ⟨h_len_rlhs, this⟩
     | inr h =>
       have : r.lhs ∈ IrrSet R := by rw [h]; exact CR_Irreducible v R
+      rw [kIrrSet_mem]
       exact ⟨h_len_rlhs, this⟩
   have h_not_mem_kIrrOSKBR : r.lhs ∉ kIrrSet k (OneStepKnuthBendix R) := by
     have : r.lhs ∉ IrrSet (OneStepKnuthBendix R) := LHS_Reducible r (OneStepKnuthBendix R) h_mem
-    have h_subset : kIrrSet k (OneStepKnuthBendix R) ⊆ IrrSet (OneStepKnuthBendix R) := by
+    have h_subset : ↑(kIrrSet k (OneStepKnuthBendix R)) ⊆ IrrSet (OneStepKnuthBendix R) := by
       exact kIrrSet_sub_IrrSet k (OneStepKnuthBendix R)
     exact (Set.mem_compl_iff (kIrrSet k (OneStepKnuthBendix R)) r.lhs).mp fun a ↦ this (h_subset a)
   simp_all
 
-noncomputable def kIrrFinset [Finite A] (k : Nat) (R : List (Rule A)) : Finset (Word A) :=
-    have : Fintype (kIrrSet k R) := by
-      exact Set.Finite.fintype (kIrrSet_fin k R)
-    Set.toFinset (kIrrSet k R)
 
-
-
-lemma kIrrSet_eq_kIrrFinset [Finite A] (k : Nat) (R : List (Rule A)) :
-    kIrrFinset k R = kIrrSet k R := by
-  unfold kIrrFinset
-  simp +zetaDelta
 
 
 lemma kIrrSet_stabilizes [Finite A] (k : Nat) (R : List (Rule A)) : ∃ n : Nat, ∀ i : Nat, i ≥ n →
     kIrrSet k (OneStepKnuthBendix^[i] R) = kIrrSet k (OneStepKnuthBendix^[n] R) := by
-  let S := {(kIrrFinset k (OneStepKnuthBendix^[j] R))| j : Nat}
+  let S := {(kIrrSet k (OneStepKnuthBendix^[j] R))| j : Nat}
   have H : WellFounded (fun x y : Finset (Word A) ↦ x ⊂ y) := by
     exact IsWellFounded.wf
   have h_nonempty : S.Nonempty := by
     refine Set.nonempty_def.mpr ?_
-    use kIrrFinset k (OneStepKnuthBendix^[0] R)
+    use kIrrSet k (OneStepKnuthBendix^[0] R)
     grind
   let Sₙ : Finset (Word A) := WellFounded.min H S h_nonempty
   have h_mem : Sₙ ∈ S := by exact WellFounded.min_mem H S h_nonempty
@@ -115,7 +104,6 @@ lemma kIrrSet_stabilizes [Finite A] (k : Nat) (R : List (Rule A)) : ∃ n : Nat,
   intro i i_geq_n
   have h_sub : kIrrSet k (OneStepKnuthBendix^[i] R) ⊆ kIrrSet k (OneStepKnuthBendix^[n] R) := by
     exact kIrrSet_OSKB_sub_of_leq R k n i i_geq_n
-  rw [hn]
   have h_mem : kIrrSet k (OneStepKnuthBendix^[i] R) ∈ S := by
     refine Set.mem_setOf.mpr ?_
     use i
@@ -141,7 +129,8 @@ lemma k_ResiduesCoincide [ReductionOrderLen A] (k : Nat) (R R' : List (Rule A))
         have : _ := CR_Irreducible w R
         unfold IrrSet at this
         simp_all
-      exact Set.mem_sep h_len h_irr
+      rw [kIrrSet_mem]
+      exact ⟨h_len, h_irr⟩
     rw [h_irr_eq] at this
     unfold kIrrSet at this
     simp_all

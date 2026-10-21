@@ -254,6 +254,110 @@ lemma mem_OSKB_of_mem_CheckOverlaps (r r' : Rule A) (R : List (Rule A)) (h_mem :
   exact List.mem_flatMap_of_mem h_mem h
 
 
+--LEMMAS ABOUT ONE STEP KB
+lemma OneStepKnuthBendix_eq_NatIterate (R : List (Rule A)) (i : Nat) :
+OneStepKnuthBendix^[i + 1] R = OneStepKnuthBendix (OneStepKnuthBendix^[i] R) := by
+  have h : OneStepKnuthBendix^[i + 1] R = OneStepKnuthBendix^[1] (OneStepKnuthBendix^[i] R) := by
+    have hi : i + 1 = 1 + i := by grind
+    rw [hi]
+    exact Function.iterate_add_apply OneStepKnuthBendix 1 i R
+  rw [h]
+  simp
+
+lemma R_sub_OneStepKB (R : List (Rule A)) :
+  R ⊆ OneStepKnuthBendix R := by
+  intro r h_mem
+  unfold OneStepKnuthBendix
+  unfold SortRules
+  apply List.mem_mergeSort.mpr
+  exact List.mem_append_left (List.flatMap (fun r ↦ CheckOverlaps r R) R) h_mem
+
+
+lemma R_sub_OneStepKB_Nat (R : List (Rule A)) :
+  ∀ n : Nat, R ⊆ OneStepKnuthBendix^[n] R := by
+  intro n
+  induction n with
+  | zero => simp
+  | succ n hn =>
+  rw [OneStepKnuthBendix_eq_NatIterate]
+  have : OneStepKnuthBendix^[n] R ⊆ OneStepKnuthBendix (OneStepKnuthBendix^[n] R) := by
+    exact R_sub_OneStepKB (OneStepKnuthBendix^[n] R)
+  exact List.Subset.trans hn this
+
+lemma OneStepKB_sub_of_succ (R : List (Rule A)) (i : Nat) :
+  OneStepKnuthBendix^[i] R ⊆ OneStepKnuthBendix^[i + 1] R := by
+  rw [OneStepKnuthBendix_eq_NatIterate]
+  exact R_sub_OneStepKB (OneStepKnuthBendix^[i] R)
+
+lemma OneStepKnuthBendix_sub_of_leq (R : List (Rule A)) (i j : Nat) (h_leq : i ≤ j) :
+  OneStepKnuthBendix^[i] R ⊆ OneStepKnuthBendix^[j] R := by
+  have h : ∀ n : Nat, OneStepKnuthBendix^[i] R ⊆ OneStepKnuthBendix^[i + n] R := by
+    intro n
+    induction n with
+    | zero => simp
+    | succ n ih =>
+    have : OneStepKnuthBendix^[i + n] R ⊆ OneStepKnuthBendix^[i + (n + 1)] R := by
+      apply OneStepKB_sub_of_succ R (i + n)
+    exact List.Subset.trans ih this
+  specialize h (j - i)
+  simp_all
+
+lemma OSKB_fixpoint_of_succ_eq {n} (R : List (Rule A)) (h_succ_eq : (OneStepKnuthBendix^[n] R) = (OneStepKnuthBendix^[n + 1] R)) : ∀ i ≥ n,
+  (OneStepKnuthBendix^[i] R) = (OneStepKnuthBendix^[n] R) := by
+  have h (j : Nat) : (OneStepKnuthBendix^[n + j] R) = (OneStepKnuthBendix^[n] R) := by
+    induction j with
+    | zero => trivial
+    | succ j ih =>
+    have : n + (j + 1) = (n + j) + 1 := by grind
+    rw [this, OneStepKnuthBendix_eq_NatIterate, ih, ←OneStepKnuthBendix_eq_NatIterate, h_succ_eq]
+  intro i i_ge_n
+  specialize h (i - n)
+  simp_all
+
+
+lemma IrrSet_sub (R : List (Rule A)) :
+  IrrSet (OneStepKnuthBendix R) ⊆ IrrSet R := by
+  exact IrrSet_sub_of_sub R (OneStepKnuthBendix R) (R_sub_OneStepKB R)
+/-
+lemma kIrrSet_sub (k : Nat) (R : List (Rule A)) :
+  kIrrSet k (OneStepKnuthBendix R) ⊆ kIrrSet k R := by
+  exact kIrrSet_sub_of_sub k R (OneStepKnuthBendix R) (R_sub_OneStepKB R)
+
+lemma kIrrSet_OSKB_sub_of_leq (R : List (Rule A)) (k i j : Nat) (h_leq : i ≤ j) :
+    kIrrSet k (OneStepKnuthBendix^[j] R) ⊆ kIrrSet k (OneStepKnuthBendix^[i] R) := by
+  apply kIrrSet_sub_of_sub
+  exact OneStepKnuthBendix_sub_of_leq R i j h_leq
+
+lemma kIrrFinset_OSKB_sub_of_leq (R : List (Rule A)) (k i j : Nat) (h_leq : i ≤ j) :
+    kIrrFinset k (OneStepKnuthBendix^[j] R) ⊆ kIrrFinset k (OneStepKnuthBendix^[i] R) := by
+  apply kIrrSet_sub_of_sub
+  exact OneStepKnuthBendix_sub_of_leq R i j h_leq
+-/
+section kIrrSetsOSKB
+variable [Finite A]
+variable {R : List (Rule A)}
+
+noncomputable instance : DecidablePred (Irreducible R) := by
+  exact Classical.decPred (Irreducible R)
+noncomputable instance : DecidablePred (Irreducible (OneStepKnuthBendix R)) := by
+  exact Classical.decPred (Irreducible (OneStepKnuthBendix R))
+
+lemma kIrrSet_sub {k : Nat} :
+  ↑(kIrrSet k (OneStepKnuthBendix R)) ⊆ kIrrSet k R := by
+  exact kIrrSet_sub_of_sub R k (OneStepKnuthBendix R) (R_sub_OneStepKB R)
+
+lemma kIrrSet_OSKB_sub_of_leq (R : List (Rule A)) (k i j : Nat) (h_leq : i ≤ j) :
+    kIrrSet k (OneStepKnuthBendix^[j] R) ⊆ kIrrSet k (OneStepKnuthBendix^[i] R) := by
+  apply kIrrSet_sub_of_sub
+  exact OneStepKnuthBendix_sub_of_leq R i j h_leq
+
+lemma kIrrFinset_OSKB_sub_of_leq (R : List (Rule A)) (k i j : Nat) (h_leq : i ≤ j) :
+    kIrrSet k (OneStepKnuthBendix^[j] R) ⊆ kIrrSet k (OneStepKnuthBendix^[i] R) := by
+  apply kIrrSet_sub_of_sub
+  exact OneStepKnuthBendix_sub_of_leq R i j h_leq
+
+end kIrrSetsOSKB
+
 /-
 lemma MakeRule_dec {u v : Word A} {r : Rule A} {R : List (Rule A)} (h : Test_for_rule u v R = some r) :
 (r.lhs = max (CanonicalReduction u R) (CanonicalReduction v R)) ∧

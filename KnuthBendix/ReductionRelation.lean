@@ -131,9 +131,35 @@ def Irreducible (R : List (Rule A)) (w : Word A) : Prop :=
   ∀ r ∈ R, ¬ (List.IsInfix r.lhs w)
 
 def IrrSet (R : List (Rule A)) : Set (Word A) := {w | Irreducible R w}
-
+/-
 def kIrrSet (k : Nat) (R : List (Rule A)) : Set (Word A) :=
   {w | w.length ≤ k ∧ Irreducible R w}
+
+lemma kIrrSet_fin [Finite A] (k : Nat) (R : List (Rule A)) : Set.Finite (kIrrSet k R) := by
+  have len_fin : {w : Word A | w.length ≤ k}.Finite := by
+    exact List.finite_length_le A k
+  exact Set.Finite.inter_of_left len_fin {w | Irreducible R w}
+
+noncomputable def kIrrFinset [Finite A] (k : Nat) (R : List (Rule A)) : Finset (Word A) :=
+    have : Fintype (kIrrSet k R) := by
+      exact Set.Finite.fintype (kIrrSet_fin k R)
+    Set.toFinset (kIrrSet k R)
+
+lemma kIrrSet_eq_kIrrFinset [Finite A] (k : Nat) (R : List (Rule A)) :
+    kIrrFinset k R = kIrrSet k R := by
+  unfold kIrrFinset
+  simp +zetaDelta
+-/
+--def kSet (k : Nat) : Set (Word A) := {w : Word A| w.length ≤ k}
+
+noncomputable def kFinset [Finite A] (k : Nat) : Finset (Word A) :=
+  --have fin_len : (kSet k).Finite := by exact List.finite_length_le A k
+  Set.Finite.toFinset (List.finite_length_le A k)
+
+open Classical in
+noncomputable def kIrrSet [Finite A] (k : Nat) (R : List (Rule A)) : Finset (Word A) :=
+  Finset.filter (Irreducible R) (kFinset k)
+
 
 def UniqueResidue (R : List (Rule A)) (w : Word A) : Prop :=
   ∃! v : Word A, v ∈ IrrSet R ∧ (Reduction R) w v
@@ -141,13 +167,11 @@ def UniqueResidue (R : List (Rule A)) (w : Word A) : Prop :=
 noncomputable def NormalForm (w : Word A) (R : List (Rule A)) (h_unique_res : UniqueResidue R w) :
   Word A := Classical.choose h_unique_res
 
+-- TODO:
+-- add lemma about x ∈ kIrrSet' iff irreducible and len ≤ k
+-- change all lemmas to talk about kIrrSet'
 
 --LEMMAS ABOUT IRREDUCIBLES AND NORMAL FORMS
-lemma kIrrSet_fin [Finite A] (k : Nat) (R : List (Rule A)) : Set.Finite (kIrrSet k R) := by
-  have len_fin : {w : Word A | w.length ≤ k}.Finite := by
-    exact List.finite_length_le A k
-  exact Set.Finite.inter_of_left len_fin {w | Irreducible R w}
-
 
 lemma Irreducible_fix {w t : Word A} {R : List (Rule A)} (h_irr : Irreducible R w) (h_reduces : Reduction R w t) : w = t := by
   unfold Irreducible at h_irr
@@ -172,17 +196,53 @@ lemma IrrSet_sub_of_sub (R R' : List (Rule A)) (h_sub : R ⊆ R') :
     IrrSet R' ⊆ IrrSet R := by
   intro w h_mem
   exact Irreducible_of_sub_irr w R R' h_sub h_mem
-
+/-
 lemma kIrrSet_sub_of_sub (k : Nat) (R R' : List (Rule A)) (h_sub : R ⊆ R') :
     kIrrSet k R' ⊆ kIrrSet k R := by
   intro w ⟨h_len, h_irr⟩
   exact ⟨h_len, Irreducible_of_sub_irr w R R' h_sub h_irr⟩
+
+lemma kIrrFinset_sub_of_sub [Finite A] (k : Nat) (R R' : List (Rule A)) (h_sub : R ⊆ R') :
+    kIrrFinset k R' ⊆ kIrrFinset k R := by
+  unfold kIrrFinset
+  simp +zetaDelta
+  exact kIrrSet_sub_of_sub k R R' h_sub
 
 lemma kIrrSet_sub_IrrSet (k : Nat) (R : List (Rule A)) : kIrrSet k R ⊆ IrrSet R := by
   unfold kIrrSet
   unfold IrrSet
   simp only [Set.setOf_subset_setOf, and_imp, imp_self, implies_true]
 
+lemma kIrrFinset_sub_IrrSet [Finite A] (k : Nat) (R : List (Rule A)) : ↑(kIrrFinset k R) ⊆ IrrSet R := by
+  rw [kIrrSet_eq_kIrrFinset k R]
+  exact kIrrSet_sub_IrrSet k R
+-/
+
+section kIrrSets
+variable [Finite A]
+variable (R : List (Rule A))
+variable [DecidablePred (Irreducible R)]
+
+lemma kIrrSet_mem {w : Word A} {k : Nat} :
+    w ∈ kIrrSet k R ↔ (w.length ≤ k ∧ Irreducible R w) := by
+  unfold kIrrSet
+  unfold kFinset
+  simp
+
+lemma kIrrSet_sub_of_sub  (k : Nat) (R' : List (Rule A))[DecidablePred (Irreducible R')] (h_sub : R ⊆ R') :
+    kIrrSet k R' ⊆ kIrrSet k R := by
+  intro w h_mem
+  apply (kIrrSet_mem R).mpr
+  apply (kIrrSet_mem R').mp at h_mem
+  exact ⟨h_mem.1, Irreducible_of_sub_irr w R R' h_sub h_mem.2⟩
+
+lemma kIrrSet_sub_IrrSet (k : Nat) (R : List (Rule A)) : ↑(kIrrSet k R) ⊆ IrrSet R := by
+  unfold kIrrSet
+  rw [Finset.coe_filter]
+  unfold IrrSet
+  simp
+
+end kIrrSets
 
 lemma irreducible_iff_reduceOnce_eq (w : Word A) (R : List (Rule A)) :
     Irreducible R w ↔ ReduceOnce w R = w := by
