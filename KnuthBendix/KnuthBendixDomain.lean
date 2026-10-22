@@ -9,22 +9,25 @@ variable {A : Type} [LinearOrder (Word A)] [DecidableEq A] [ReductionOrder A]
 
 --TERMINATION CONDITION
 
--- R is in the domain of KnuthBendix if after some number of iterations we get a fixpoint (i.e. no new rules are added)
+-- R is in the domain of KnuthBendix if after some number of iterations we get a fixpoint
+--(i.e. no new rules are added)
 def KnuthBendix_dom (R : List (Rule A)) : Prop :=
-  ∃ n : Nat, (OneStepKnuthBendix^[n] R) = (OneStepKnuthBendix^[n + 1] R) ∧ (∀ i < n, (OneStepKnuthBendix^[i] R) ≠ (OneStepKnuthBendix^[i + 1] R))
+  ∃ n : Nat, (OneStepKnuthBendix^[n] R) = (OneStepKnuthBendix^[n + 1] R) ∧
+  (∀ i < n, (OneStepKnuthBendix^[i] R) ≠ (OneStepKnuthBendix^[i + 1] R))
 
 
 --LEMMAS ABOUT KNUTH-BENDIX DOMAIN
+variable {R : List (Rule A)}
 
--- if R is in the domain of KnuthBendix then from some n on iterating OneStepKnuthBendix returns does nothing
-lemma KnuthBendix_dom_fixpoint (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
+-- if R is in the domain of KnuthBendix then eventually iterating OneStepKnuthBendix does nothing
+lemma KnuthBendix_dom_fixpoint (h_dom : KnuthBendix_dom R) :
   ∃ n : Nat, ∀ i : Nat, i ≥ n →
   (OneStepKnuthBendix^[i] R) = (OneStepKnuthBendix^[n] R) := by
   obtain ⟨n, h⟩ := h_dom
   use n
-  exact OSKB_fixpoint_of_succ_eq R h.1
+  exact OSKB_fixpoint_of_succ_eq h.1
 
-lemma KnuthBendixDomain (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
+lemma KnuthBendixDomain (h_dom : KnuthBendix_dom R) :
   ∃ n : Nat, KnuthBendix R = (OneStepKnuthBendix^[n] R)
   ∧ (∀ i ≥ n, (OneStepKnuthBendix^[i] R) = (OneStepKnuthBendix^[n] R))
   := by
@@ -63,20 +66,20 @@ lemma KnuthBendixDomain (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
     exact h5
   constructor
   · rw [h3, h2]
-  · exact OSKB_fixpoint_of_succ_eq R hn.1
+  · exact OSKB_fixpoint_of_succ_eq hn.1
 
-lemma KnuthBendixDomain_Fixpoint (R : List (Rule A)) (h_dom : KnuthBendix_dom R) :
+lemma KnuthBendixDomain_Fixpoint (h_dom : KnuthBendix_dom R) :
   OneStepKnuthBendix (KnuthBendix R) = KnuthBendix R := by
-  obtain ⟨n, ⟨h_eq, hi⟩⟩ := KnuthBendixDomain R h_dom
+  obtain ⟨n, ⟨h_eq, hi⟩⟩ := KnuthBendixDomain h_dom
   rw [h_eq]
   rw [←OneStepKnuthBendix_eq_NatIterate]
   exact hi (n + 1) (by exact Nat.le_add_right n 1)
 
-lemma Ei_sub_KB (R : List (Rule A)) (i : Nat) (h_dom : KnuthBendix_dom R) :
+lemma Ei_sub_KB {i : Nat} (h_dom : KnuthBendix_dom R) :
   OneStepKnuthBendix^[i] R ⊆ KnuthBendix R := by
-  obtain ⟨n, h_eq, h_pow⟩ := KnuthBendixDomain R h_dom
+  obtain ⟨n, h_eq, h_pow⟩ := KnuthBendixDomain h_dom
   rw [h_eq]
   by_cases h_i_leq_n : i ≤ n
-  · exact OneStepKnuthBendix_sub_of_leq R i n h_i_leq_n
+  · exact OneStepKnuthBendix_sub_of_leq h_i_leq_n
   · specialize h_pow i (Nat.le_of_not_le h_i_leq_n)
     exact subset_of_subset_of_eq (fun ⦃a⦄ a_1 ↦ a_1) h_pow

@@ -19,13 +19,14 @@ abbrev Word (A : Type) := List A
   rhs_lt_lhs : rhs < lhs
 deriving DecidableEq
 
-structure Overlap {A : Type} (w u : Word A) where
+-- order of words matters (u comes before v)
+structure Overlap {A : Type} (u v : Word A) where
   overlap : Word A
   prefix₁ : Word A
   suffix₁ : Word A
   suffix₂ : Word A
   nontriv : overlap ≠ []
-  eq : w = prefix₁ ++ overlap ++ suffix₁ ∧ u = overlap ++ suffix₂
+  eq : u = prefix₁ ++ overlap ++ suffix₁ ∧ v = overlap ++ suffix₂
   empty : suffix₁ = [] ∨ suffix₂ = []
 
 -- linear order that is well-founded and translation invariant
@@ -35,15 +36,14 @@ class ReductionOrder (α : Type) [LinearOrder (Word α)] where
   tiₗ : ∀ (l₁ l₂ l : Word α), l₁ ≤ l₂ → (l ++ l₁) ≤ (l ++ l₂)
   tiᵣ : ∀ (l₁ l₂ l : Word α), l₁ ≤ l₂ → (l₁ ++ l) ≤ (l₂ ++ l)
 
+-- ReductionOrder where order on words is consistent with length of the words
 class ReductionOrderLen (α : Type) [LinearOrder (Word α)] extends ReductionOrder α where
   cwl : ∀ (l₁ l₂ : Word α), l₁ ≤ l₂ → l₁.length ≤ l₂.length
 
 
 attribute [instance] ReductionOrder.wf
 
-variable {A : Type}
-
-variable [LinearOrder (Word A)]
+variable {A : Type} [LinearOrder (Word A)]
 
 open Function
 
@@ -76,13 +76,14 @@ lemma OrderOnRules (r₁ r₂ : Rule A) :
 
 
 -- MAKE OVERLAP AND RULE
+variable {u v : Word A}
 
-def MakeOverlap {w v : Word A} (y w_pre w_suf v_suf : Word A) (h_nontriv : y ≠ [])
-  (h_empty : w_suf = [] ∨ v_suf = []) (h_eq : w = w_pre ++ y ++ w_suf ∧ v = y ++ v_suf) :
-  Overlap w v := {
+def MakeOverlap (y u_pre u_suf v_suf : Word A) (h_nontriv : y ≠ [])
+  (h_empty : u_suf = [] ∨ v_suf = []) (h_eq : u = u_pre ++ y ++ u_suf ∧ v = y ++ v_suf) :
+  Overlap u v := {
     overlap := y,
-    prefix₁ := w_pre,
-    suffix₁ := w_suf,
+    prefix₁ := u_pre,
+    suffix₁ := u_suf,
     suffix₂ := v_suf,
     nontriv := h_nontriv,
     empty := h_empty,
@@ -95,31 +96,40 @@ def MakeRule (w₁ w₂ : Word A) (h_neq : w₁ ≠ w₂) : Rule A := {
   rhs_lt_lhs := by rw [min_lt_max] ; exact h_neq }
 
 
---LEMMAS ABOUT "MakeRule"
+--LEMMAS ABOUT "MakeOverlap" AND "MakeRule"
+lemma MakeOverlap_eq (o : Overlap u v) :
+    MakeOverlap o.overlap o.prefix₁ o.suffix₁ o.suffix₂ o.nontriv o.empty o.eq = o := by
+  unfold MakeOverlap
+  simp
 
-lemma MakeRule_symm (u v : Word A) (h : u ≠ v) : MakeRule u v h = MakeRule v u (Ne.symm h):= by
+-- TODO: should I make u ≠ v implicit or explicit
+lemma MakeRule_def {h : u ≠ v} :
+    (MakeRule u v h).lhs = max u v ∧ (MakeRule u v h).rhs = min u v := by
+  unfold MakeRule
+  simp
+
+lemma MakeRule_symm {h : u ≠ v} : MakeRule u v h = MakeRule v u (Ne.symm h):= by
   unfold MakeRule
   have h_eq_max : max u v = max v u := by exact max_comm u v
   have h_eq_min : min u v = min v u := by exact min_comm u v
   exact Rule.ext h_eq_max h_eq_min
 
-lemma LHS_eq (u v : Word A) (h_neq : u ≠ v) :
+lemma LHS_eq {h_neq : u ≠ v} :
   let r := MakeRule u v h_neq;
   r.lhs = max u v := by
   unfold MakeRule
   simp +zetaDelta
 
-
-lemma RHS_eq (u v : Word A) (h_neq : u ≠ v) :
+lemma RHS_eq {h_neq : u ≠ v} :
   let r : Rule A := MakeRule u v h_neq;
   r.rhs = min u v := by
   unfold MakeRule
   simp +zetaDelta
 
-lemma b_nontriv {u v : Word A} (o : Overlap u v) : (o.overlap ++ o.suffix₁) ≠ [] := by
+lemma b_nontriv (o : Overlap u v) : (o.overlap ++ o.suffix₁) ≠ [] := by
   exact List.append_ne_nil_of_left_ne_nil o.nontriv o.suffix₁
 
-lemma v_nontriv {u v : Word A} (o : Overlap u v) : v ≠ [] := by
+lemma v_nontriv (o : Overlap u v) : v ≠ [] := by
   rw [o.eq.2]
   exact List.append_ne_nil_of_left_ne_nil o.nontriv o.suffix₂
 
@@ -127,10 +137,11 @@ lemma v_nontriv {u v : Word A} (o : Overlap u v) : v ≠ [] := by
 
 variable [ReductionOrder A]
 
-
 --TRANSLATION INVARIANCE (STRICT)
 
-lemma til_le {l₁ l₂ l : Word A} (h : l₁ < l₂) : (l ++ l₁) < (l ++ l₂) := by
+variable {l₁ l₂ l : Word A}
+
+lemma til_le (h : l₁ < l₂) : (l ++ l₁) < (l ++ l₂) := by
   refine Std.lt_iff_le_and_ne.mpr ?_
   constructor
   · apply ReductionOrder.tiₗ
@@ -139,7 +150,7 @@ lemma til_le {l₁ l₂ l : Word A} (h : l₁ < l₂) : (l ++ l₁) < (l ++ l₂
     have : l₁ = l₂ := by exact List.append_cancel_left h_eq
     simp_all
 
-lemma tir_le {l₁ l₂ l : Word A} (h : l₁ < l₂) : (l₁ ++ l) < (l₂ ++ l) := by
+lemma tir_le (h : l₁ < l₂) : (l₁ ++ l) < (l₂ ++ l) := by
   refine Std.lt_iff_le_and_ne.mpr ?_
   constructor
   · apply ReductionOrder.tiᵣ
@@ -150,13 +161,14 @@ lemma tir_le {l₁ l₂ l : Word A} (h : l₁ < l₂) : (l₁ ++ l) < (l₂ ++ l
 
 
 --LEMMAS ABOUT EMPTY WORD BEING THE LEAST ELEMENT
+variable (w : Word A)
 
 def pow (w : Word A) (n : Nat) : Word A :=
   match n with
   | 0 => []
   | Nat.succ m => (pow w m) ++ w
 
-lemma pow_desc (w : Word A) (h : w < ([] : Word A)) :
+lemma pow_desc (h : w < ([] : Word A)) :
   ∀ n : Nat, pow w (n + 1) < pow w n := by
   intro n
   induction n with
@@ -168,7 +180,7 @@ lemma pow_desc (w : Word A) (h : w < ([] : Word A)) :
     unfold pow
     exact tir_le ih
 
-lemma EmptyWordBottom (w : Word A) : [] ≤ w := by
+lemma EmptyWordBottom : [] ≤ w := by
   by_contra h
   push Not at h
   have hacc : Acc (· < ·) ([] : Word A) := ReductionOrder.wf.wf.apply []
@@ -198,12 +210,12 @@ lemma EmptyWordBottom (w : Word A) : [] ≤ w := by
   exact no_chain [] hacc (pow w) this (pow_desc w h)
 
 
-lemma TrivOr (w : Word A) : w = [] ∨ [] < w := by
+lemma TrivOr : w = [] ∨ [] < w := by
   have : [] ≤ w := EmptyWordBottom w
   exact Or.symm (Decidable.lt_or_eq_of_le' this)
 
 
-lemma EmptyWordBottom' (w : Word A) : [] < w ↔ w ≠ [] := by
+lemma EmptyWordBottom' : [] < w ↔ w ≠ [] := by
   constructor
   · intro h_neq
     by_contra h_triv
@@ -217,7 +229,7 @@ lemma EmptyWordBottom' (w : Word A) : [] < w ↔ w ≠ [] := by
     | inr h2 =>
       exact h2
 
-lemma LeqTrivial_Empty (w : Word A) : w ≤ [] → w = [] := by
+lemma LeqTrivial_Empty : w ≤ [] → w = [] := by
   intro leq_triv
   exact eq_of_ge_of_le (EmptyWordBottom w) leq_triv
 
@@ -234,11 +246,14 @@ lemma lhsNonempty (r : Rule A) : r.lhs ≠ [] := by
     exact Std.lt_trans h2 rhs_lt_lhs
 
 
+-- LEMMAS ABOUT "List.getRest"
 section ListGetRest
 variable {A : Type}
 variable [DecidableEq A]
+variable {w u v y u' v' : Word A}
 
-lemma ListGetRestDec {w u v : Word A} : List.getRest w u = some v ↔ w = u ++ v := by
+
+lemma ListGetRestDec : List.getRest w u = some v ↔ w = u ++ v := by
   constructor
   · intro h
     induction u generalizing w v with
@@ -267,7 +282,7 @@ lemma ListGetRestDec {w u v : Word A} : List.getRest w u = some v ↔ w = u ++ v
         grind
 
 
-lemma ListGetRest_some {u v y u' v' : Word A} (hu : u = y ++ u') (hv : v = y ++ v') :
+lemma ListGetRest_some (hu : u = y ++ u') (hv : v = y ++ v') :
     List.getRest u v = some u' ↔ v' = [] := by
   constructor
   · intro h
@@ -279,7 +294,7 @@ lemma ListGetRest_some {u v y u' v' : Word A} (hu : u = y ++ u') (hv : v = y ++ 
     rw [←hv] at hu
     exact ListGetRestDec.mpr hu
 
-lemma ListGetRest_none {v y v' : Word A} (hv : v = y ++ v') :
+lemma ListGetRest_none (hv : v = y ++ v') :
     List.getRest y v = none ↔ v' ≠ [] := by
   constructor
   · intro h
@@ -300,16 +315,12 @@ lemma ListGetRest_none {v y v' : Word A} (hv : v = y ++ v') :
       simp at hv
       simp_all
 
-lemma ListGetRest_none' {u u' v y v' : Word A} (hu : u = y ++ u') (hv : v = y ++ v') (hu' : u' = []) :
+lemma ListGetRest_none' (hu : u = y ++ u') (hv : v = y ++ v') (hu' : u' = []) :
     List.getRest u v = none ↔ v' ≠ [] := by
   rw [hu'] at hu
   simp only [List.append_nil] at hu
   rw [hu]
   exact ListGetRest_none hv
 
-lemma MakeOverlap_eq {u v : Word A} (o : Overlap u v) :
-    MakeOverlap o.overlap o.prefix₁ o.suffix₁ o.suffix₂ o.nontriv o.empty o.eq = o := by
-  unfold MakeOverlap
-  simp
 
 end ListGetRest

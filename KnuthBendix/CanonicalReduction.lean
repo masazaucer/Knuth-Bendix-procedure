@@ -7,35 +7,38 @@ public import KnuthBendix.basic
 variable {A : Type} [LinearOrder (Word A)] [DecidableEq A]
 
 section ReduceOnce
+
 --DEFINITION OF ONE STEP REDUCTION
+
 --if any LHS of a rule in R is a prefix of w returns reduced word otherwise returns none
-def Reduce_if_IsPrefix (w : Word A) (R : List (Rule A)) : Option (Word A) :=
+def Reduce_if_IsPrefix (R : List (Rule A)) (w : Word A) : Option (Word A) :=
   match R with
   | [] => none
   | r :: RS =>
     match List.isPrefixOf? r.lhs w with
-    | none => Reduce_if_IsPrefix w RS
+    | none => Reduce_if_IsPrefix RS w
     | some w' => some (r.rhs ++ w')
 
-
+--TODO: change List.concat to x :: a
 -- if any rule is a prefix of "b" returns reduced word by that rule otherwise makes a recursive call
 -- with moving one generator from b to a (returns a if b is empty)
 def ReduceOnce_rec (a b : Word A) (R : List (Rule A)) : Word A :=
   match b with
   | [] => a
   | x :: b' =>
-    match Reduce_if_IsPrefix b R with
+    match Reduce_if_IsPrefix R b with
     | none => ReduceOnce_rec (List.concat a x) b' R
-    | some b'' => a ++ b''
+    | some u => a ++ u
 
 --reduces a word with the first rule that applies from left to right (if any)
 --otherwise returns original word
-def ReduceOnce (w : Word A) (R : List (Rule A)) : Word A := ReduceOnce_rec [] w R
+def ReduceOnce (R : List (Rule A)) (w : Word A) : Word A := ReduceOnce_rec [] w R
 
 
 --LEMMAS ABOUT "Reduce_if_IsPrefix"
+variable (v w : Word A) (R : List (Rule A))
 
-lemma isPrefixOf?_eq_some_iff (v w : Word A) :
+lemma isPrefixOf?_eq_some_iff :
     (∃u : Word A, List.isPrefixOf? v w = some u) ↔ v <+: w := by
   constructor
   · intro ⟨u, hu⟩
@@ -43,29 +46,18 @@ lemma isPrefixOf?_eq_some_iff (v w : Word A) :
   · intro ⟨u, hu⟩
     exact ⟨u, List.isPrefixOf?_eq_some_iff_append_eq.mpr hu⟩
 
-lemma isPrefixOf?_eq_none_iff (v w : Word A) :
+lemma isPrefixOf?_eq_none_iff :
     List.isPrefixOf? v w = none ↔ ¬(v <+: w) := by
-  --TODO: simplify the proof with apply not_congr
-  constructor
-  · intro h
-    by_contra h_pref
-    obtain ⟨u, hu⟩ := (isPrefixOf?_eq_some_iff v w).mpr h_pref
-    rw [hu] at h
-    contradiction
-  · intro h_pref
-    by_contra neq_none
-    have : ∃u : Word A, List.isPrefixOf? v w = some u := by
-      exact Option.ne_none_iff_exists'.mp neq_none
-    have : v <+: w := by exact (isPrefixOf?_eq_some_iff v w).mp this
-    contradiction
+  have : List.isPrefixOf? v w = none ↔ ¬(∃u : Word A, List.isPrefixOf? v w = some u) := by
+    apply Iff.trans Option.eq_none_iff_forall_ne_some (by simp)
+  apply Iff.trans this (not_congr (isPrefixOf?_eq_some_iff v w))
 
-variable (w : Word A) (R : List (Rule A))
-
+-- If w cannot be reduced by (r :: R), then it cannot be reduced by R either
 lemma Reduce_if_IsPrefix_none_succ (r : Rule A) :
-    Reduce_if_IsPrefix w (r :: R) = none → Reduce_if_IsPrefix w R = none := by
+    Reduce_if_IsPrefix (r :: R) w = none → Reduce_if_IsPrefix R w = none := by
   intro h
   by_cases h_pref : r.lhs <+: w
-  · have : ∃ u, Reduce_if_IsPrefix w (r :: R) = some u := by
+  · have : ∃ u, Reduce_if_IsPrefix (r :: R) w = some u := by
       have : ∃ u, List.isPrefixOf? r.lhs w = some u := by
         obtain ⟨u, hu⟩ := h_pref
         use u
@@ -89,8 +81,9 @@ lemma Reduce_if_IsPrefix_none_succ (r : Rule A) :
     rw [this] at h
     exact h
 
+-- Reduce_if_IsPrefix returns none iff no rule in R is a prefix of w
 lemma Reduce_if_IsPrefix_none_iff :
-    Reduce_if_IsPrefix w R = none ↔ ∀ r ∈ R, ¬ r.lhs <+: w := by
+    Reduce_if_IsPrefix R w = none ↔ ∀ r ∈ R, ¬ r.lhs <+: w := by
   induction R with
   | nil =>
     simp only [List.not_mem_nil, IsEmpty.forall_iff, implies_true, iff_true]
@@ -111,7 +104,7 @@ lemma Reduce_if_IsPrefix_none_iff :
       · have h_mem : r' ∈ R' := by
           have h_mem : r' = r ∨ r' ∈ R' := by exact List.eq_or_mem_of_mem_cons r_mem'
           exact h_mem.resolve_left h_eq
-        have : Reduce_if_IsPrefix w R' = none := by exact Reduce_if_IsPrefix_none_succ w R' r h_pref
+        have : Reduce_if_IsPrefix R' w = none := by exact Reduce_if_IsPrefix_none_succ w R' r h_pref
         have h : _ := ih.1 this
         exact h r' h_mem
     · intro h_pref
@@ -131,9 +124,10 @@ lemma Reduce_if_IsPrefix_none_iff :
       apply ih.2
       exact h1
 
+-- Reduce_if_IsPrefix returns some iff there is a rule in R whose lhs is a prefix of w
 lemma Reduce_if_IsPrefix_some_iff :
-    (∃ u, Reduce_if_IsPrefix w R = some u) ↔ ∃ r ∈ R, r.lhs <+: w := by
-  have h1 : (∃ u, Reduce_if_IsPrefix w R = some u) ↔ ¬(Reduce_if_IsPrefix w R = none) := by
+    (∃ u, Reduce_if_IsPrefix R w = some u) ↔ ∃ r ∈ R, r.lhs <+: w := by
+  have h1 : (∃ u, Reduce_if_IsPrefix R w = some u) ↔ ¬(Reduce_if_IsPrefix R w = none) := by
     exact Iff.symm Option.ne_none_iff_exists'
   have h2 : (∃ r ∈ R, r.lhs <+: w) ↔ ¬(∀ r ∈ R, ¬ r.lhs <+: w) := by
     conv =>
@@ -144,9 +138,12 @@ lemma Reduce_if_IsPrefix_some_iff :
   push Not
   trivial
 
+
 section
 variable {w} {w' : Word A} {R}
-lemma append_eq_of_Reduce_if_IsPrefix_eq_some (h : Reduce_if_IsPrefix w R = some w') :
+
+-- If Reduce_if_IsPrefix returns some w' then w and w' differ by changing r.lhs to r.rhs
+lemma append_eq_of_Reduce_if_IsPrefix_eq_some (h : Reduce_if_IsPrefix R w = some w') :
     ∃ r ∈ R, ∃ u : Word A, w = r.lhs ++ u ∧ w' = r.rhs ++ u := by
   let ⟨r, r_mem, h_pref⟩ := (Reduce_if_IsPrefix_some_iff w R).1 ⟨w', h⟩
   induction R with
@@ -181,14 +178,15 @@ lemma append_eq_of_Reduce_if_IsPrefix_eq_some (h : Reduce_if_IsPrefix w R = some
       exact List.exists_mem_cons_of_exists ih
 
 
-lemma rule_prefix_of_Reduce_if_IsPrefix_eq_some (h : Reduce_if_IsPrefix w R = some w') :
+-- If Reduce_if_IsPrefix returns some w' then there is r ∈ R s.t. r.lhs and r.rhs are prefixes of w and w' respectively
+lemma rule_prefix_of_Reduce_if_IsPrefix_eq_some (h : Reduce_if_IsPrefix R w = some w') :
     ∃ r ∈ R, r.lhs <+: w ∧ r.rhs <+: w' := by
   obtain ⟨r, r_mem, u, hu⟩ := append_eq_of_Reduce_if_IsPrefix_eq_some h
   use r
   exact ⟨r_mem, ⟨u, Eq.symm hu.1⟩, ⟨u, Eq.symm hu.2⟩⟩
 
-
-lemma Reduce_if_IsPrefix_le [ReductionOrder A] (h : Reduce_if_IsPrefix w R = some w') : w' < w := by
+-- The word obtained by Reduce_if_IsPrefix is strictly smaller than w
+lemma Reduce_if_IsPrefix_le [ReductionOrder A] (h : Reduce_if_IsPrefix R w = some w') : w' < w := by
   induction R with
   | nil =>
     unfold Reduce_if_IsPrefix at h
@@ -211,24 +209,24 @@ lemma Reduce_if_IsPrefix_le [ReductionOrder A] (h : Reduce_if_IsPrefix w R = som
 end
 
 --LEMMAS ABOUT "ReduceOnce"
+variable {w} {R} {a b : Word A}
 
-lemma ReduceOnce_rec_eq_append (b : Word A) (R : List (Rule A)) :
-    ∀ a : Word A, ReduceOnce_rec a b R = a ++ ReduceOnce_rec [] b R := by
-  induction b with
+lemma ReduceOnce_rec_eq_append (a b : Word A) :
+    ReduceOnce_rec a b R = a ++ ReduceOnce_rec [] b R := by
+  induction b generalizing a with
   | nil =>
-    intro a
     unfold ReduceOnce_rec
     simp
   | cons x b' ih =>
-    intro a
     let b := x :: b'
-    by_cases h_pref : ∃ r ∈ R, r.lhs <+: (x :: b')
-    · have h : ∃ u, Reduce_if_IsPrefix b R = some u := by exact (Reduce_if_IsPrefix_some_iff b R).mpr h_pref
+    by_cases h_pref : ∃ r ∈ R, r.lhs <+: b
+    · have h : ∃ u, Reduce_if_IsPrefix R b = some u := by
+        apply (Reduce_if_IsPrefix_some_iff b R).mpr h_pref
       obtain ⟨u, hu⟩ := h
       unfold ReduceOnce_rec
       rw [hu]
       simp
-    · have h : Reduce_if_IsPrefix b R = none := by
+    · have h : Reduce_if_IsPrefix R b = none := by
         push Not at h_pref
         exact (Reduce_if_IsPrefix_none_iff b R).mpr h_pref
       unfold ReduceOnce_rec
@@ -237,6 +235,7 @@ lemma ReduceOnce_rec_eq_append (b : Word A) (R : List (Rule A)) :
       rw [(ih (a ++ [x])), ih [x]]
       simp
 
+-- ReduceOnce_rec returns the same word iff no r.lhs is a subword of w
 lemma ReduceOnce_rec_eq_iff [ReductionOrder A] :
   ReduceOnce_rec [] w R = w ↔ ∀ r ∈ R, ¬ r.lhs <:+: w := by
   induction w with
@@ -255,7 +254,7 @@ lemma ReduceOnce_rec_eq_iff [ReductionOrder A] :
     · intro h_eq r r_mem
       by_contra h_infix
       by_cases h_pref : ∃r' ∈ R, r'.lhs <+: (x :: b')
-      · have : (∃ u, Reduce_if_IsPrefix (x :: b') R = some u) := by
+      · have : (∃ u, Reduce_if_IsPrefix R (x :: b') = some u) := by
           refine (Reduce_if_IsPrefix_some_iff (x :: b') R).mpr ?_
           obtain ⟨r, hr⟩ := h_pref
           use r
@@ -278,7 +277,7 @@ lemma ReduceOnce_rec_eq_iff [ReductionOrder A] :
           push Not
           use r
         have h_calc : ReduceOnce_rec [] (x :: b') R = [x] ++ ReduceOnce_rec [] b' R := by
-          have h1 : Reduce_if_IsPrefix (x :: b') R = none := by
+          have h1 : Reduce_if_IsPrefix R (x :: b') = none := by
             exact (Reduce_if_IsPrefix_none_iff (x :: b') R).mpr h_pref
           calc _ = ReduceOnce_rec ([x]) b' R := by
                 conv =>
@@ -287,13 +286,13 @@ lemma ReduceOnce_rec_eq_iff [ReductionOrder A] :
                   rw [h1]
                   simp
                _ = [x] ++ ReduceOnce_rec [] b' R := by
-                exact ReduceOnce_rec_eq_append b' R [x]
+                exact ReduceOnce_rec_eq_append [x] b'
         rw [h_calc] at h_eq
         simp only [List.cons_append, List.nil_append, List.cons.injEq, true_and] at h_eq
         rw [h_eq] at h_neq
         contradiction
     · intro h
-      have h1 : Reduce_if_IsPrefix (x :: b') R = none := by
+      have h1 : Reduce_if_IsPrefix R (x :: b') = none := by
         refine (Reduce_if_IsPrefix_none_iff (x :: b') R).mpr ?_
         intro r r_mem
         by_contra h_pref
@@ -313,27 +312,28 @@ lemma ReduceOnce_rec_eq_iff [ReductionOrder A] :
               unfold ReduceOnce_rec
               rw [h1]
               simp
-           _ = [x] ++ ReduceOnce_rec [] b' R := ReduceOnce_rec_eq_append b' R [x]
+           _ = [x] ++ ReduceOnce_rec [] b' R := ReduceOnce_rec_eq_append [x] b'
            _ = [x] ++ b' := by exact (List.append_right_inj [x]).mpr h3
            _ = x :: b' := by exact List.singleton_append
 
+-- ReduceOnce returns same word iff no r.lhs is a subword of w
 lemma ReduceOnce_eq_iff [ReductionOrder A] :
-    ReduceOnce w R = w ↔ ∀ r ∈ R, ¬ r.lhs <:+: w := by
+    ReduceOnce R w = w ↔ ∀ r ∈ R, ¬ r.lhs <:+: w := by
   unfold ReduceOnce
-  exact ReduceOnce_rec_eq_iff w R
+  exact ReduceOnce_rec_eq_iff
 
-
+--If there is r ∈ R s.t. r.lhs is subword of w, then ReduceOnce w ≠ w
 lemma ReduceOnce_neq_of_IsInfix [ReductionOrder A]
-    (h_infix : ∃ r ∈ R, r.lhs <:+: w) : ReduceOnce w R ≠ w := by
+    (h_infix : ∃ r ∈ R, r.lhs <:+: w) : ReduceOnce R w ≠ w := by
   have : ¬ ∀ r ∈ R, ¬ r.lhs <:+: w := by grind
   unfold ReduceOnce
-  exact (not_congr (ReduceOnce_rec_eq_iff w R)).mpr this
+  exact (not_congr (ReduceOnce_rec_eq_iff)).mpr this
 
-
+--
 lemma ReduceOnce_rec_step {x : A} {a b : Word A} {R : List (Rule A)}
     (h : ∀ r ∈ R, ¬ r.lhs <+: (x :: b)) :
     ReduceOnce_rec a (x :: b) R = ReduceOnce_rec (a ++ [x]) b R := by
-  have : Reduce_if_IsPrefix (x :: b) R = none :=
+  have : Reduce_if_IsPrefix R (x :: b) = none :=
     (Reduce_if_IsPrefix_none_iff (x :: b) R).mpr h
   conv =>
   lhs
@@ -344,7 +344,7 @@ lemma ReduceOnce_rec_step {x : A} {a b : Word A} {R : List (Rule A)}
 
 lemma rule_infix_ReduceOnce_append_of_lhs_infix [ReductionOrder A] {w : Word A} {R : List (Rule A)}
     (h : ∃ r ∈ R, r.lhs <:+: w) :
-    ∃ r ∈ R, ∃ v u : Word A, w = v ++ r.lhs ++ u ∧ (ReduceOnce w R) = v ++ r.rhs ++ u := by
+    ∃ r ∈ R, ∃ v u : Word A, w = v ++ r.lhs ++ u ∧ (ReduceOnce R w) = v ++ r.rhs ++ u := by
   obtain ⟨r, r_mem, h_infix⟩ := h
   induction w with
   | nil =>
@@ -356,7 +356,7 @@ lemma rule_infix_ReduceOnce_append_of_lhs_infix [ReductionOrder A] {w : Word A} 
     by_cases h_pref : ∃ r' ∈ R, r'.lhs <+: (x :: w')
     · obtain ⟨u, hu⟩ := (Reduce_if_IsPrefix_some_iff (x :: w') R).mpr h_pref
       obtain ⟨r',⟨r_mem', ⟨v, hv⟩⟩⟩ := append_eq_of_Reduce_if_IsPrefix_eq_some hu
-      have h_eq : ReduceOnce (x :: w') R = u := by
+      have h_eq : ReduceOnce R (x :: w') = u := by
         unfold ReduceOnce
         unfold ReduceOnce_rec
         rw [hu]
@@ -385,35 +385,35 @@ lemma rule_infix_ReduceOnce_append_of_lhs_infix [ReductionOrder A] {w : Word A} 
         constructor
         · rw [h.1]
           simp
-        · have : ReduceOnce (x :: w') R = x :: ReduceOnce w' R := by
+        · have : ReduceOnce R (x :: w') = x :: ReduceOnce R w' := by
             calc _ = ReduceOnce_rec [] (x :: w') R := by unfold ReduceOnce; trivial
                 _ = ReduceOnce_rec [x] w' R := by exact ReduceOnce_rec_step h'
-                _ = [x] ++ ReduceOnce_rec [] w' R := by exact ReduceOnce_rec_eq_append w' R [x]
-                _ = x :: ReduceOnce w' R := by exact List.singleton_append
+                _ = [x] ++ ReduceOnce_rec [] w' R := by exact ReduceOnce_rec_eq_append [x] w'
+                _ = x :: ReduceOnce R w' := by exact List.singleton_append
           rw [this, h.2]
           simp
 
 lemma rule_infix_append_of_ReduceOnce_neq [ReductionOrder A]
-    (h_neq : ReduceOnce w R ≠ w) :
-    ∃r ∈ R, ∃ v u : Word A, w = v ++ r.lhs ++ u ∧ (ReduceOnce w R) = v ++ r.rhs ++ u := by
+    (h_neq : ReduceOnce R w ≠ w) :
+    ∃r ∈ R, ∃ v u : Word A, w = v ++ r.lhs ++ u ∧ (ReduceOnce R w) = v ++ r.rhs ++ u := by
   have : ∃ r ∈ R, r.lhs <:+: w := by
-    have : _ := (not_congr (ReduceOnce_eq_iff w R)).mp h_neq
+    have : _ := (not_congr (ReduceOnce_eq_iff)).mp h_neq
     grind
   exact rule_infix_ReduceOnce_append_of_lhs_infix this
 
 lemma rule_infix_ReduceOnce_of_lhs_infix [ReductionOrder A]
     (h : ∃ r ∈ R, r.lhs <:+: w) :
-    ∃ r' ∈ R, r'.lhs <:+: w ∧ r'.rhs <:+: ReduceOnce w R := by
+    ∃ r' ∈ R, r'.lhs <:+: w ∧ r'.rhs <:+: ReduceOnce R w := by
   obtain ⟨r, r_mem, v, u, h_append⟩ := rule_infix_ReduceOnce_append_of_lhs_infix h
   use r
   exact ⟨r_mem, ⟨v, u, Eq.symm h_append.1⟩, ⟨v, u, Eq.symm h_append.2⟩⟩
 
 
 
-
+variable (w a)
 --PROOF THAT "ReduceOnce" PRODUCES A SMALLER WORD
 lemma Reduce_if_IsPrefix_leq [ReductionOrder A] :
-    Reduce_if_IsPrefix w R ≤ w := by
+    Reduce_if_IsPrefix R w ≤ w := by
   induction R with
   | nil => unfold Reduce_if_IsPrefix; trivial
   | cons r RS ih =>
@@ -429,103 +429,104 @@ lemma Reduce_if_IsPrefix_leq [ReductionOrder A] :
   exact Std.le_of_lt r.rhs_lt_lhs
 
 lemma ReduceOnce_rec_leq [ReductionOrder A] :
-    ∀ a : Word A, ReduceOnce_rec a w R ≤ (a ++ w) := by
-  induction w with
-  | nil => simp only [List.append_nil]; unfold ReduceOnce_rec; exact Std.IsPreorder.le_refl
+    ReduceOnce_rec a w R ≤ (a ++ w) := by
+  induction w generalizing a with
+  | nil => simp only [List.append_nil]; unfold ReduceOnce_rec; exact Std.IsPreorder.le_refl a
   | cons x b' ih =>
-  intro a
-  unfold ReduceOnce_rec
-  cases hb : Reduce_if_IsPrefix (x :: b') R with
-  | none =>
-  simp only [List.concat_eq_append]
-  specialize ih (a ++ [x])
-  have : a ++ x :: b' = a ++ [x] ++ b' := by exact List.append_cons a x b'
-  exact le_of_le_of_eq ih (id (Eq.symm this))
-  | some b'' =>
-  have h := Reduce_if_IsPrefix_leq (x :: b') R
-  rw [hb] at h
-  exact ReductionOrder.tiₗ b'' (x :: b') a h
+    unfold ReduceOnce_rec
+    cases hb : Reduce_if_IsPrefix R (x :: b') with
+    | none =>
+      simp only [List.concat_eq_append]
+      specialize ih (a ++ [x])
+      have : a ++ x :: b' = a ++ [x] ++ b' := by exact List.append_cons a x b'
+      exact le_of_le_of_eq ih (id (Eq.symm this))
+    | some b'' =>
+      have h := Reduce_if_IsPrefix_leq (x :: b') (R := R)
+      rw [hb] at h
+      exact ReductionOrder.tiₗ b'' (x :: b') a h
 
---ReduceOnce w R ≤ w
-lemma ReduceOnce_leq [ReductionOrder A] : ReduceOnce w R ≤ w := by
+--ReduceOnce R w ≤ w
+lemma ReduceOnce_leq [ReductionOrder A] : ReduceOnce R w ≤ w := by
   unfold ReduceOnce
   apply ReduceOnce_rec_leq w
 
---ReduceOnce w R < w if they are not equal
-lemma ReduceOnce_le [ReductionOrder A] (h_neq : ReduceOnce w R ≠ w)
-: ReduceOnce w R < w := by
+--ReduceOnce R w < w if they are not equal
+lemma ReduceOnce_le [ReductionOrder A] (h_neq : ReduceOnce R w ≠ w)
+: ReduceOnce R w < w := by
   unfold ReduceOnce
-  apply lt_of_le_of_ne (ReduceOnce_leq w R) h_neq
+  apply lt_of_le_of_ne (ReduceOnce_leq w) h_neq
 
 end ReduceOnce
 
 
 section CanonicalReduction
-variable (w : Word A) (R : List (Rule A))
+
+variable {w : Word A} {R : List (Rule A)}
 variable [ReductionOrder A]
 
--- REDUCTION BY ITERATION
+-- REDUCTION BY ITERATION OF REDUCEONCE
 
 --iterates ReduceOnce n times
 def ReduceNat (w : Word A) (R : List (Rule A)) (n : Nat) : Word A :=
-  Nat.iterate (ReduceOnce · R) n w
+  Nat.iterate (ReduceOnce R) n w
 
 instance [ReductionOrder A] : WellFoundedRelation (Word A) where
   rel := (· < ·)
   wf := ReductionOrder.wf.wf
 
 --iterates ReduceOnce as long as the output is changing
-def CanonicalReduction [ReductionOrder A] (w : Word A) (R : List (Rule A)) : Word A :=
-  if h_reduceonce_eq : ReduceOnce w R = w then
+def CanonicalReduction [ReductionOrder A] (R : List (Rule A)) (w : Word A) : Word A :=
+  if h_reduceonce_eq : ReduceOnce R w = w then
     w
   else
-    CanonicalReduction (ReduceOnce w R) R
+    CanonicalReduction R (ReduceOnce R w)
 termination_by w
 decreasing_by
-exact ReduceOnce_le w R h_reduceonce_eq
+exact ReduceOnce_le w h_reduceonce_eq
 
 
+-- LEMMAS ABOUT CANONICAL REDUCTION
 
 lemma CanonicalReduction_leq :
-CanonicalReduction w R ≤ w := by
-  let C : Word A → Prop := fun x ↦ CanonicalReduction x R ≤ x
+CanonicalReduction R w ≤ w := by
+  let C : Word A → Prop := fun x ↦ CanonicalReduction R x ≤ x
   apply WellFounded.fix (C := C) ReductionOrder.wf.wf
   intro w ih
   unfold C at *
-  specialize ih (ReduceOnce w R)
+  specialize ih (ReduceOnce R w)
   unfold CanonicalReduction
-  by_cases h_reduceonce_eq : ReduceOnce w R = w
+  by_cases h_reduceonce_eq : ReduceOnce R w = w
   · simp_all
-  · have h_reduceonce_lt : ReduceOnce w R < w := ReduceOnce_le w R h_reduceonce_eq
+  · have h_reduceonce_lt : ReduceOnce R w < w := ReduceOnce_le w h_reduceonce_eq
     specialize ih h_reduceonce_lt
     simp_all only [↓reduceDIte, ge_iff_le]
-    have h_reduceonce_leq : ReduceOnce w R ≤ w := ReduceOnce_leq w R
-    exact Std.IsPreorder.le_trans (CanonicalReduction (ReduceOnce w R) R) (ReduceOnce w R) w ih
+    have h_reduceonce_leq : ReduceOnce R w ≤ w := ReduceOnce_leq w
+    exact Std.IsPreorder.le_trans (CanonicalReduction R (ReduceOnce R w)) (ReduceOnce R w) w ih
         h_reduceonce_leq
 
 
 lemma CR_fix_ReduceOnce :
-  ReduceOnce (CanonicalReduction w R) R = CanonicalReduction w R := by
-  let C : Word A → Prop := fun x ↦ ReduceOnce (CanonicalReduction x R) R = CanonicalReduction x R
+  ReduceOnce R (CanonicalReduction R w) = CanonicalReduction R w := by
+  let C : Word A → Prop := fun x ↦ ReduceOnce R (CanonicalReduction R x) = CanonicalReduction R x
   apply WellFounded.fix (C := C) ReductionOrder.wf.wf
   intro w ih
   unfold C at *
   unfold CanonicalReduction
-  by_cases h_reduceonce_eq : ReduceOnce w R = w
+  by_cases h_reduceonce_eq : ReduceOnce R w = w
   · simp_all
-  · have h_reduceonce_lt : ReduceOnce w R < w := ReduceOnce_le w R h_reduceonce_eq
-    specialize ih (ReduceOnce w R) h_reduceonce_lt
+  · have h_reduceonce_lt : ReduceOnce R w < w := ReduceOnce_le w h_reduceonce_eq
+    specialize ih (ReduceOnce R w) h_reduceonce_lt
     simp_all
 
-lemma fixpoint_CanonicalReduction_of_ReduceOnce (h : ReduceOnce w R = w) :
-  CanonicalReduction w R = w := by
+lemma fixpoint_CanonicalReduction_of_ReduceOnce (h : ReduceOnce R w = w) :
+  CanonicalReduction R w = w := by
   unfold CanonicalReduction
   rw [h]
   simp
 
 lemma CanonicalReduction_ReduceOnce_eq_CanonicalReduction :
-  CanonicalReduction (ReduceOnce w R) R = CanonicalReduction w R := by
-  by_cases h_eq : ReduceOnce w R = w
+  CanonicalReduction R (ReduceOnce R w) = CanonicalReduction R w := by
+  by_cases h_eq : ReduceOnce R w = w
   · rw [h_eq]
   · conv =>
     rhs
