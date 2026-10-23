@@ -24,6 +24,18 @@ lemma TestForRule_some_of_CanonicalReduction_neq
   unfold Test_for_rule
   simp [h_neq]
 
+lemma TestForRule_some_lhs {r : Rule A} (h : Test_for_rule u v R = some r) :
+    (r.lhs = max (CanonicalReduction R u) (CanonicalReduction R v)) ∧
+    (r.rhs = min (CanonicalReduction R u) (CanonicalReduction R v)) := by
+  unfold Test_for_rule at h
+  by_cases h_CReq : CanonicalReduction R u = CanonicalReduction R v
+  · simp_all
+  · simp +zetaDelta at h
+    simp [h_CReq] at h
+    unfold MakeRule at h
+    grind
+
+
 
 -- PROOF OF OVERLAP_MEM_FINDOVERLAPS
 
@@ -246,6 +258,42 @@ lemma mem_OSKB_of_mem_CheckOverlaps (h_mem : r ∈ R) (h : r' ∈ CheckOverlaps 
   apply List.mem_mergeSort.mpr
   refine List.mem_append_right R ?_
   exact List.mem_flatMap_of_mem h_mem h
+
+lemma mem_OSKB_of_Test_for_rule_some (h_mem₁ : r₁ ∈ R) (h_mem₂ : r₂ ∈ R)
+    (h : Test_for_rule (o.prefix₁ ++ r₂.rhs ++ o.suffix₁) (r₁.rhs ++ o.suffix₂) R = some r) :
+    r ∈ OneStepKnuthBendix R := by
+  have : r ∈ CheckOverlaps_rules r₁ r₂ R := mem_CheckOverlaps_rules_of_Test_for_rule_some h
+  have : r ∈ CheckOverlaps r₁ R := mem_CheckOverlaps_of_mem_CheckOverlaps_rules h_mem₂ this
+  exact mem_OSKB_of_mem_CheckOverlaps h_mem₁ this
+
+
+lemma not_mem_R_of_Test_for_rule_some
+    (h : Test_for_rule (o.prefix₁ ++ r₂.rhs ++ o.suffix₁) (r₁.rhs ++ o.suffix₂) R = some r) :
+    r ∉ R := by
+  have h_mem_irr : r.lhs ∈ IrrSet R := by
+    have _ : r.lhs = max (CanonicalReduction R (o.prefix₁ ++ r₂.rhs ++ o.suffix₁))
+        (CanonicalReduction R (r₁.rhs ++ o.suffix₂)) := by
+      exact (TestForRule_some_lhs h).1
+    by_cases h_leq : CanonicalReduction R (o.prefix₁ ++ r₂.rhs ++ o.suffix₁) <
+        CanonicalReduction R (r₁.rhs ++ o.suffix₂)
+    · have h_eq : r.lhs = CanonicalReduction R (r₁.rhs ++ o.suffix₂) := by grind
+      rw [h_eq]
+      exact CR_mem_IrrSet
+    · have h_eq : r.lhs = CanonicalReduction R (o.prefix₁ ++ r₂.rhs ++ o.suffix₁) := by grind
+      rw [h_eq]
+      exact CR_mem_IrrSet
+  by_contra h_mem
+  have h_not_mem_irr : r.lhs ∉ IrrSet R := by
+    exact LHS_Reducible h_mem
+  contradiction
+
+lemma OSKB_neq_of_Test_for_rule_some (h_mem₁ : r₁ ∈ R) (h_mem₂ : r₂ ∈ R)
+    (h : Test_for_rule (o.prefix₁ ++ r₂.rhs ++ o.suffix₁) (r₁.rhs ++ o.suffix₂) R = some r) :
+    OneStepKnuthBendix R ≠ R := by
+  have h_mem : r ∈ OneStepKnuthBendix R := by exact mem_OSKB_of_Test_for_rule_some h_mem₁ h_mem₂ h
+  have h_not_mem : r ∉ R := by exact not_mem_R_of_Test_for_rule_some h
+  exact ne_of_mem_of_not_mem' h_mem h_not_mem
+
 
 
 --LEMMAS ABOUT ONE STEP KB

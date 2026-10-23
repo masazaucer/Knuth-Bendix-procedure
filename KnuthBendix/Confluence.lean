@@ -457,18 +457,22 @@ lemma kLocalConfluence_and_Rules : k_LocallyConfluent k R ↔ ∀ r ∈ R, ∀ r
       refine relation_join_symm ?_
       exact RelationJoin_of_kOverlap h_complete h_len hr'.2 hr.2 h_overlap_uv
 
+lemma RelationJoin_of_CR_eq (h_eq : CanonicalReduction R u = CanonicalReduction R v) :
+    Relation.Join (Reduction R) u v := by
+  let t : Word A := CanonicalReduction R u
+  have h_reduces_ut : Reduction R u t := by exact reduces_to_CanonicalReduction
+  have h_reduces_vt : Reduction R v t := by
+    unfold t;
+    rw [h_eq];
+    exact reduces_to_CanonicalReduction
+  use t
 
 lemma CanonicalReduction_neq_of_notRelationJoin
     (h_notRelationJoin : ¬Relation.Join (Reduction R) u v) :
     CanonicalReduction R u ≠ CanonicalReduction R v := by
   by_contra h_eq
-  let t : Word A := CanonicalReduction R u
-  have h_reduces_ut : Reduction R u t := by exact reduces_to_CanonicalReduction
-  have h_reduces_vt : Reduction R v t := by
-    unfold t; rw [h_eq];
-    exact reduces_to_CanonicalReduction
-  have : Relation.Join (Reduction R) u v := by use t
-  trivial
+  have h_relationJoin : Relation.Join (Reduction R) u v := RelationJoin_of_CR_eq h_eq
+  contradiction
 
 -- If R is complete, w →* w'and w' is Irreducible then CR w = w'
 --TODO : simplify?
