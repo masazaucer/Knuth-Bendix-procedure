@@ -4,6 +4,8 @@ public import KnuthBendix.KnuthBendixDomain
 public import Mathlib.Data.Finite.Defs
 public import Mathlib.Data.Set.Finite.Basic
 
+@[expose] public section
+
 variable {A : Type} [LinearOrder (Word A)] [DecidableEq A] [ReductionOrder A]
 variable {R : List (Rule A)} {r r₁ r₂ : Rule A} {o : Overlap r₁.lhs r₂.lhs}
 
