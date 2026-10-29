@@ -13,11 +13,11 @@ public import Mathlib.SetTheory.Lists
 abbrev Word (A : Type) := List A
 
 -- Ordered pair of words
-@[ext] structure Rule (A : Type) [LT (Word A)] where
+@[ext] structure Rule (A : Type) [LinearOrder (Word A)] where
   lhs : Word A
   rhs : Word A
   rhs_lt_lhs : rhs < lhs
-deriving DecidableEq
+deriving DecidableEq, Repr
 
 -- order of words matters (u comes before v)
 structure Overlap {A : Type} (u v : Word A) where
@@ -63,7 +63,7 @@ instance : LinearOrder (Rule A) :=
 
 def SortRules (R : List (Rule A)) : List (Rule A) := List.mergeSort R
 
-lemma OrderOnRules (r₁ r₂ : Rule A) :
+lemma OrderOnRules {r₁ r₂ : Rule A} :
   r₁ < r₂ ↔ r₁.lhs < r₂.lhs ∨ (r₁.lhs = r₂.lhs ∧ r₁.rhs < r₂.rhs) := by
   constructor
   · intro h_leq
@@ -89,6 +89,7 @@ def MakeOverlap (y u_pre u_suf v_suf : Word A) (h_nontriv : y ≠ [])
     empty := h_empty,
     eq := h_eq }
 
+-- make LinearOrder in curly brackets instead of square brackets
 -- Forms a (directed) rule from a pair of words
 def MakeRule (w₁ w₂ : Word A) (h_neq : w₁ ≠ w₂) : Rule A := {
   lhs := max w₁ w₂,
