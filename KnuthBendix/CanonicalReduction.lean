@@ -1,6 +1,6 @@
 module
 
-public import KnuthBendix.basic
+public import KnuthBendix.Basic
 
 @[expose] public section
 
