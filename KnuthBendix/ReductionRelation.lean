@@ -302,20 +302,25 @@ lemma kIrrSet_fin [Finite A] (k : Nat) (R : List (Rule A)) : Set.Finite (kIrrSet
     exact List.finite_length_le A k
   exact Set.Finite.inter_of_left len_fin {w | Irreducible R w}
 
-noncomputable def kIrrFinset [Finite A] (k : Nat) (R : List (Rule A)) : Finset (Word A) :=
-    have : Fintype (kIrrSet k R) := by
-      exact Set.Finite.fintype (kIrrSet_fin k R)
-    Set.toFinset (kIrrSet k R)
+def kIrrFinset [Finite A] (k : Nat) (R : List (Rule A)) : Finset (Word A) :=
+    Set.Finite.toFinset (kIrrSet_fin k R)
 
 lemma kIrrSet_eq_kIrrFinset [Finite A] (k : Nat) (R : List (Rule A)) :
     kIrrFinset k R = kIrrSet k R := by
   unfold kIrrFinset
   simp +zetaDelta
--/
+
 --def kSet (k : Nat) : Set (Word A) := {w : Word A| w.length ≤ k}
+-/
+
+instance {R : List (Rule A)} : DecidablePred (Irreducible R) := fun
+  | .nil => by
+    apply List.decidableBAll
+  | .cons x w => by
+    apply List.decidableBAll
+
 
 noncomputable def kFinset [Finite A] (k : Nat) : Finset (Word A) :=
-  --have fin_len : (kSet k).Finite := by exact List.finite_length_le A k
   Set.Finite.toFinset (List.finite_length_le A k)
 
 open Classical in
@@ -384,7 +389,8 @@ lemma kIrrFinset_sub_IrrSet [Finite A] (k : Nat) (R : List (Rule A)) : ↑(kIrrF
 
 section kIrrSets
 variable [Finite A]
-variable [DecidablePred (Irreducible R)] [DecidablePred (Irreducible R')] {k : Nat}
+variable {k : Nat}
+
 
 lemma kIrrSet_mem :
     w ∈ kIrrSet k R ↔ (w.length ≤ k ∧ Irreducible R w) := by
