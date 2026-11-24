@@ -19,6 +19,7 @@ abbrev Word (A : Type) := List A
   rhs_lt_lhs : rhs < lhs
 deriving DecidableEq, Repr
 
+
 -- order of words matters (u comes before v)
 structure Overlap {A : Type} (u v : Word A) where
   overlap : Word A
@@ -28,6 +29,13 @@ structure Overlap {A : Type} (u v : Word A) where
   nontriv : overlap ≠ []
   eq : u = prefix₁ ++ overlap ++ suffix₁ ∧ v = overlap ++ suffix₂
   empty : suffix₁ = [] ∨ suffix₂ = []
+
+structure ProperOverlap {A : Type} (u v : Word A) where
+  pref : Word A
+  overlap : Word A
+  suf : Word A
+  nontriv : overlap ≠ []
+  eq : u = pref ++ overlap ∧ v = overlap ++ suf
 
 -- linear order that is well-founded and translation invariant
 -- we define it on words so that we can use concatenation of lists
@@ -89,6 +97,14 @@ def MakeOverlap (y u_pre u_suf v_suf : Word A) (h_nontriv : y ≠ [])
     empty := h_empty,
     eq := h_eq }
 
+def MakeProperOverlap (x y z : Word A) (h_nontiv : y ≠ []) (h_eq : u = x ++ y ∧ v = y ++ z) :
+  ProperOverlap u v := {
+    pref := x
+    overlap := y
+    suf := z
+    nontriv := h_nontiv
+    eq := h_eq }
+
 -- make LinearOrder in curly brackets instead of square brackets
 -- Forms a (directed) rule from a pair of words
 def MakeRule (w₁ w₂ : Word A) (h_neq : w₁ ≠ w₂) : Rule A := {
@@ -135,7 +151,6 @@ lemma v_nontriv (o : Overlap u v) : v ≠ [] := by
   exact List.append_ne_nil_of_left_ne_nil o.nontriv o.suffix₂
 
 
-
 variable [ReductionOrder A]
 
 --TRANSLATION INVARIANCE (STRICT)
@@ -159,6 +174,7 @@ lemma tir_le (h : l₁ < l₂) : (l₁ ++ l) < (l₂ ++ l) := by
   · by_contra h_eq
     have : l₁ = l₂ := by exact List.append_cancel_right h_eq
     simp_all
+
 
 
 --LEMMAS ABOUT EMPTY WORD BEING THE LEAST ELEMENT
@@ -233,6 +249,13 @@ lemma EmptyWordBottom' : [] < w ↔ w ≠ [] := by
 lemma LeqTrivial_Empty : w ≤ [] → w = [] := by
   intro leq_triv
   exact eq_of_ge_of_le (EmptyWordBottom w) leq_triv
+
+
+lemma ti_cons [ReductionOrder A] (w : Word A) (x : A) : w < (x :: w) := by
+  rw [←List.singleton_append]
+  apply tir_le (l₁ := [])
+  refine (EmptyWordBottom' [x]).mpr ?_
+  exact Ne.symm List.ne_cons_self
 
 
 -- RULE CANNOT HAVE TRIVIAL LHS

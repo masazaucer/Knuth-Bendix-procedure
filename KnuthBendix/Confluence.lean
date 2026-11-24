@@ -12,33 +12,33 @@ instance : WellFoundedRelation (Word A) where
 
 -- DEFINITION OF CONFLUENCE AND COMPLETENESS
 -- R is confluent if w → v and w → u implies ∃ t, v → t and u → t
-def Confluent (R : List (Rule A)) : Prop :=
+def Confluent (R : Array (Rule A)) : Prop :=
   ∀ w v u : Word A,
     (Reduction R) w v →
     (Reduction R) w u →
     (Relation.Join (Reduction R)) v u
 
 -- confluence for words of lenght at most k
-def k_Confluent (k : Nat) (R : List (Rule A)) : Prop :=
+def k_Confluent (k : Nat) (R : Array (Rule A)) : Prop :=
   ∀ w v u : Word A,
     w.length ≤ k →
     (Reduction R) w v →
     (Reduction R) w u →
     (Relation.Join (Reduction R)) v u
 
-def k_Complete (k : Nat) (R : List (Rule A)) : Prop :=
+def k_Complete (k : Nat) (R : Array (Rule A)) : Prop :=
   ∀ w : Word A, w.length ≤ k → UniqueResidue R w
 
-def Complete (R : List (Rule A)) : Prop :=
+def Complete (R : Array (Rule A)) : Prop :=
   ∀ w : Word A, UniqueResidue R w
 
-def LocallyConfluent (R : List (Rule A)) : Prop :=
+def LocallyConfluent (R : Array (Rule A)) : Prop :=
   ∀ w v u : Word A,
     (OneStepReduction R) w v →
     (OneStepReduction R) w u →
     (Relation.Join (Reduction R)) v u
 
-def k_LocallyConfluent (k : Nat) (R : List (Rule A)) : Prop :=
+def k_LocallyConfluent (k : Nat) (R : Array (Rule A)) : Prop :=
   ∀ w v u : Word A,
     w.length ≤ k →
     (OneStepReduction R) w v →
@@ -47,7 +47,7 @@ def k_LocallyConfluent (k : Nat) (R : List (Rule A)) : Prop :=
 
 section Equivalences
 variable {k : Nat}
-variable {R : List (Rule A)}
+variable {R : Array (Rule A)}
 
 -- LEMMAS ABOUT CONFLUENCE, LOCAL CONFLUENCE AND COMPLETENESS
 lemma Confluent_iff_Complete : Confluent R ↔ Complete R := by
@@ -232,11 +232,11 @@ end Equivalences
 
 --CONNECTING COMPLETENESS WITH RULES
 --The order of the rules matters!
-def CompleteRules (r r' : Rule A) (R : List (Rule A)) : Prop :=
+def CompleteRules (r r' : Rule A) (R : Array (Rule A)) : Prop :=
   ∀ o : Overlap r.lhs r'.lhs,
   Relation.Join (Reduction R) (r.rhs ++ o.suffix₂) (o.prefix₁ ++ r'.rhs ++ o.suffix₁)
 
-def k_CompleteRules (k : Nat) (r r' : Rule A) (R : List (Rule A)) : Prop :=
+def k_CompleteRules (k : Nat) (r r' : Rule A) (R : Array (Rule A)) : Prop :=
   ∀ o : Overlap r.lhs r'.lhs,
   List.length (o.prefix₁ ++ o.overlap ++ o.suffix₁ ++ o.suffix₂) ≤ k →
   Relation.Join (Reduction R) (r.rhs ++ o.suffix₂) (o.prefix₁ ++ r'.rhs ++ o.suffix₁)
@@ -338,7 +338,7 @@ lemma technical_lemma (hv : w = v₁ ++ v ++ v₂) (hu : w = u₁ ++ u ++ u₂)
   | inr h => exact Or.inr (Or.inr (Or.inl h))
 
 variable [LinearOrder (Word A)] [DecidableEq A] [ReductionOrder A]
-variable {R : List (Rule A)} {k : Nat} {r r' : Rule A}
+variable {R : Array (Rule A)} {k : Nat} {r r' : Rule A}
 
 -- If w contains w lhs of rules from R as subword and they are disjoint,
 -- the reduced words reduce to the same word

@@ -13,25 +13,25 @@ section Reduction
 
 --DEFINITION OF REDUCTION RELATION AND EQUIVALENCE OF WORDS
 -- LHS of rules reduce to corresponding RHS
-inductive SimpleReduction (R : List (Rule A)) : Word A → Word A → Prop
+inductive SimpleReduction (R : Array (Rule A)) : Word A → Word A → Prop
   | mk : ∀ r ∈ R, SimpleReduction R r.lhs r.rhs
 
 inductive CongruenceClosure (r : Word A → Word A → Prop) : Word A → Word A → Prop
   | mk : ∀ w w' u₁ u₂ : Word A, r w w' → (CongruenceClosure r (u₁ ++ w ++ u₂) (u₁ ++ w' ++ u₂))
 
 -- congruence closure of simple reduction (i. e. reducing a word by applying one rule)
-def OneStepReduction (R : List (Rule A)) := CongruenceClosure (SimpleReduction R)
+def OneStepReduction (R : Array (Rule A)) := CongruenceClosure (SimpleReduction R)
 
 -- reflexive transitive closure of one step reduction
-def Reduction (R : List (Rule A)) := Relation.ReflTransGen (OneStepReduction R)
+def Reduction (R : Array (Rule A)) := Relation.ReflTransGen (OneStepReduction R)
 
 -- reflexive transitive symmetric closure of one step reduction
-def EquivalenceOfWords (R : List (Rule A)) := Relation.EqvGen (OneStepReduction R)
+def EquivalenceOfWords (R : Array (Rule A)) := Relation.EqvGen (OneStepReduction R)
 
 
 
 --LEMMAS ABOUT REDUCTION AND ONESTEPREDUCTION
-variable {w w' : Word A} {R R' : List (Rule A)}
+variable {w w' : Word A} {R R' : Array (Rule A)}
 
 -- OneStepReduction implies Reduction
 lemma Reduction_of_OneStepReduction (h : OneStepReduction R w w') :
@@ -104,20 +104,22 @@ lemma OneStepReduction_len_leq [ReductionOrderLen A] (h : OneStepReduction R w w
   have : Reduction R w w' := Reduction_of_OneStepReduction h
   exact Reduction_len_leq this
 
+instance : HasSubset (Array (Rule A)) := sorry
+
 
 -- If w reduces (in one step) wrt smaller set of rules, it reduces (in one step) also wrt bigger set of rules
-lemma OSR_of_OSR_sub (h_sub : R ⊆ R') (h : OneStepReduction R w w') :
+lemma OSR_of_OSR_sub (h_sub : R.toList ⊆ R'.toList) (h : OneStepReduction R w w') :
     OneStepReduction R' w w' := by
   unfold OneStepReduction at *
   induction h with
   | mk w w' u₁ u₂ h =>
     induction h with
     | mk r r_mem =>
-      have r_mem' : r ∈ R' := by exact Multiset.mem_coe.mp (h_sub r_mem)
-      have : SimpleReduction R' r.lhs r.rhs := by exact SimpleReduction.mk r (h_sub r_mem)
+      have r_mem' : r ∈ R' := by refine Array.mem_def.mpr ?_; exact Multiset.mem_coe.mp (h_sub (r_mem.val))
+      have : SimpleReduction R' r.lhs r.rhs := by exact SimpleReduction.mk r r_mem'
       exact CongruenceClosure.mk r.lhs r.rhs u₁ u₂ this
 
-lemma Reduction_of_Reduction_sub (h_sub : R ⊆ R') (h : Reduction R w w') :
+lemma Reduction_of_Reduction_sub (h_sub : R.toList ⊆ R'.toList) (h : Reduction R w w') :
     Reduction R' w w' := by
   let C : Word A → Prop := fun x ↦ ∀ x', Reduction R x x' → Reduction R' x x'
   have : C w := by
@@ -288,10 +290,10 @@ section Irreducibles
 --IRREDUCIBLE ELEMENTS AND NORMAL FORMS
 
 -- word w is irreducible with respect to R if it is equal to its normal form
-def Irreducible (R : List (Rule A)) (w : Word A) : Prop :=
+def Irreducible (R : Array (Rule A)) (w : Word A) : Prop :=
   ∀ r ∈ R, ¬ (List.IsInfix r.lhs w)
 
-def IrrSet (R : List (Rule A)) : Set (Word A) := {w | Irreducible R w}
+def IrrSet (R : Array (Rule A)) : Set (Word A) := {w | Irreducible R w}
 
 /-
 def kIrrSet (k : Nat) (R : List (Rule A)) : Set (Word A) :=
@@ -313,31 +315,33 @@ lemma kIrrSet_eq_kIrrFinset [Finite A] (k : Nat) (R : List (Rule A)) :
 --def kSet (k : Nat) : Set (Word A) := {w : Word A| w.length ≤ k}
 -/
 
-instance {R : List (Rule A)} : DecidablePred (Irreducible R) := fun
+instance {R : Array (Rule A)} : DecidablePred (Irreducible R) := fun
   | .nil => by
-    apply List.decidableBAll
+    sorry
+    --apply List.decidableBAll
   | .cons x w => by
-    apply List.decidableBAll
+    sorry
+    --apply List.decidableBAll
 
 
 noncomputable def kFinset [Finite A] (k : Nat) : Finset (Word A) :=
   Set.Finite.toFinset (List.finite_length_le A k)
 
 open Classical in
-noncomputable def kIrrSet [Finite A] (k : Nat) (R : List (Rule A)) : Finset (Word A) :=
+noncomputable def kIrrSet [Finite A] (k : Nat) (R : Array (Rule A)) : Finset (Word A) :=
   Finset.filter (Irreducible R) (kFinset k)
 
 
-def UniqueResidue (R : List (Rule A)) (w : Word A) : Prop :=
+def UniqueResidue (R : Array (Rule A)) (w : Word A) : Prop :=
   ∃! v : Word A, v ∈ IrrSet R ∧ (Reduction R) w v
 
-noncomputable def NormalForm (w : Word A) (R : List (Rule A)) (h_unique_res : UniqueResidue R w) :
+noncomputable def NormalForm (w : Word A) (R : Array (Rule A)) (h_unique_res : UniqueResidue R w) :
   Word A := Classical.choose h_unique_res
 
 
 
 --LEMMAS ABOUT IRREDUCIBLES AND NORMAL FORMS
-variable {w w' : Word A} {R R' : List (Rule A)}
+variable {w w' : Word A} {R R' : Array (Rule A)}
 
 -- Irreducible element can only reduce to itself
 lemma Irreducible_fix (h_irr : Irreducible R w) (h_reduces : Reduction R w w') : w = w' := by
@@ -355,13 +359,14 @@ lemma Irreducible_fix (h_irr : Irreducible R w) (h_reduces : Reduction R w w') :
     grind
 
 -- If w is irreducible wrt bigger set of rules, it is also irreducible wrt smaller one
-lemma Irreducible_of_sub_irr (h_sub : R ⊆ R') (h_irr : Irreducible R' w) :
+lemma Irreducible_of_sub_irr (h_sub : R.toList ⊆ R'.toList) (h_irr : Irreducible R' w) :
     Irreducible R w := by
   intro r h_mem
-  exact h_irr r (h_sub h_mem)
+  have : r ∈ R' := by refine Array.mem_def.mpr ?_; exact h_sub (h_mem.val)
+  exact h_irr r this
 
 -- Smaller set of rules gives more irreducible elements
-lemma IrrSet_sub_of_sub (h_sub : R ⊆ R') :
+lemma IrrSet_sub_of_sub (h_sub : R.toList ⊆ R'.toList) :
     IrrSet R' ⊆ IrrSet R := by
   intro w h_mem
   exact Irreducible_of_sub_irr h_sub h_mem
@@ -398,7 +403,7 @@ lemma kIrrSet_mem :
   unfold kFinset
   simp
 
-lemma kIrrSet_sub_of_sub (h_sub : R ⊆ R') :
+lemma kIrrSet_sub_of_sub (h_sub : R.toList ⊆ R'.toList) :
     kIrrSet k R' ⊆ kIrrSet k R := by
   intro w h_mem
   apply kIrrSet_mem.mpr
