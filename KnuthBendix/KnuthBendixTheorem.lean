@@ -176,9 +176,7 @@ theorem KnuthBendix_Complete (h_dom : KnuthBendix_dom R) : Complete (KnuthBendix
   refine Complete_of_k_Complete ?_
   intro k
   have ⟨m, h_eq, h_pow⟩ := KnuthBendixDomain h_dom
-  have k_complete := k_Completeness (R := R)
-  specialize k_complete k
-  obtain ⟨n, hn⟩ := k_complete
+  obtain ⟨n, hn⟩ := k_Completeness (R := R) k
   rw [h_eq]
   by_cases h_n_leq_m : n ≤ m
   · specialize hn m h_n_leq_m

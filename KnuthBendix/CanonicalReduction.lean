@@ -240,15 +240,10 @@ lemma ReduceOnce_rec_eq_iff [ReductionOrder A] :
   ReduceOnce_rec [] w R = w ↔ ∀ r ∈ R, ¬ r.lhs <:+: w := by
   induction w with
   | nil =>
-    constructor
-    · intro h r r_mem
-      by_contra h_infix
-      have h_empty : r.lhs = [] := by exact List.eq_nil_of_infix_nil h_infix
-      have h_nonempty : r.lhs ≠ [] := by exact lhsNonempty r
-      contradiction
-    · intro h
-      unfold ReduceOnce_rec
-      trivial
+    unfold ReduceOnce_rec
+    simp only [List.infix_nil, true_iff]
+    intro r h_mem
+    exact lhsNonempty r
   | cons x b' ih =>
     constructor
     · intro h_eq r r_mem

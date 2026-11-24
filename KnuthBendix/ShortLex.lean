@@ -424,5 +424,4 @@ def eliminate_duplicate (R : List (Rule Gen)) : List (Rule Gen) :=
 #eval! (eliminate_duplicate (KnuthBendix R))
 
 
-
 end Example2
