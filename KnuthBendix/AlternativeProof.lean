@@ -7,7 +7,7 @@ public import Mathlib.Data.Set.Finite.Basic
 @[expose] public section
 
 variable {A : Type} [LinearOrder (Word A)] [DecidableEq A] [ReductionOrder A]
-variable {R : List (Rule A)} {r r₁ r₂ : Rule A} {o : Overlap r₁.lhs r₂.lhs}
+variable {R : Array (Rule A)} {r r₁ r₂ : Rule A} {o : Overlap r₁.lhs r₂.lhs}
 
 /-
 lemma lemma1 (h_fix : OneStepKnuthBendix R = R) :
@@ -67,7 +67,7 @@ lemma lemma6 : OneStepKnuthBendix R = R ↔
 -/
 
 
-lemma lemma4 {w u : Word A} (h_test_eq_none : Test_for_rule w u R = none) :
+lemma CR_eq_of_TestForRule_none {w u : Word A} (h_test_eq_none : Test_for_rule w u R = none) :
     CanonicalReduction R w = CanonicalReduction R u := by
   by_contra h_neq
   unfold Test_for_rule at h_test_eq_none
@@ -93,7 +93,7 @@ lemma locallyConfluent_of_fixpoint (h_fix : OneStepKnuthBendix R = R) : LocallyC
   intro r₁ h₁ r₂ h₂ o
   have h : CanonicalReduction R (r₁.rhs ++ o.suffix₂) =
       CanonicalReduction R (o.prefix₁ ++ r₂.rhs ++ o.suffix₁) := by
-    refine lemma4 ?_
+    refine CR_eq_of_TestForRule_none ?_
     exact Test_for_rule_none_of_OSKB_eq h_fix r₁ h₁ r₂ h₂ o
   use CanonicalReduction R (r₁.rhs ++ o.suffix₂)
   constructor

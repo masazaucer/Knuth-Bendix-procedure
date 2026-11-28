@@ -11,13 +11,13 @@ variable {A : Type} [LinearOrder (Word A)] [DecidableEq A] [ReductionOrder A]
 
 -- R is in the domain of KnuthBendix if after some number of iterations we get a fixpoint
 --(i.e. no new rules are added)
-def KnuthBendix_dom (R : List (Rule A)) : Prop :=
+def KnuthBendix_dom (R : Array (Rule A)) : Prop :=
   ∃ n : Nat, (OneStepKnuthBendix^[n] R) = (OneStepKnuthBendix^[n + 1] R) ∧
   (∀ i < n, (OneStepKnuthBendix^[i] R) ≠ (OneStepKnuthBendix^[i + 1] R))
 
 
 --LEMMAS ABOUT KNUTH-BENDIX DOMAIN
-variable {R : List (Rule A)}
+variable {R : Array (Rule A)}
 
 -- if R is in the domain of KnuthBendix then eventually iterating OneStepKnuthBendix does nothing
 lemma KnuthBendix_dom_fixpoint (h_dom : KnuthBendix_dom R) :
@@ -82,4 +82,5 @@ lemma Ei_sub_KB {i : Nat} (h_dom : KnuthBendix_dom R) :
   by_cases h_i_leq_n : i ≤ n
   · exact OneStepKnuthBendix_sub_of_leq h_i_leq_n
   · specialize h_pow i (Nat.le_of_not_le h_i_leq_n)
-    exact subset_of_subset_of_eq (fun ⦃a⦄ a_1 ↦ a_1) h_pow
+    sorry
+    --exact subset_of_subset_of_eq (fun ⦃a⦄ a_1 ↦ a_1) h_pow

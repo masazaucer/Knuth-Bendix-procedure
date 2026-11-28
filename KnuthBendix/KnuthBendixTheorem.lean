@@ -8,7 +8,7 @@ public import Mathlib.Data.List.Basic
 @[expose] public section
 
 variable {A : Type} [Finite A] [LinearOrder (Word A)] [DecidableEq A] [ReductionOrder A]
-variable {k : Nat} {R R' : List (Rule A)}
+variable {k : Nat} {R R' : Array (Rule A)}
 
 --#check Test_for_rule_symm
 -- If kIrrSet does not chenge with applying OneStepKnuthBendix then the set of rules is kComplete
@@ -47,7 +47,7 @@ lemma k_Complete_of_kIrrSet_eq_succ [ReductionOrderLen A] :
       have u_len_leq : u.length ≤ k := by
         have : u.length ≤ (o.prefix₁ ++ o.overlap ++ o.suffix₁ ++ o.suffix₂).length := by
           apply OneStepReduction_len_leq
-          exact overlap_reduces r₁_mem
+          exact Overlap_reduces_fst r₁_mem
         exact Nat.le_trans this h_len
       exact Nat.le_trans this u_len_leq
     have CRv_len : (CanonicalReduction R v).length ≤ k := by
@@ -57,7 +57,7 @@ lemma k_Complete_of_kIrrSet_eq_succ [ReductionOrderLen A] :
       have u_len_leq : v.length ≤ k := by
         have : v.length ≤ (o.prefix₁ ++ o.overlap ++ o.suffix₁ ++ o.suffix₂).length := by
           apply OneStepReduction_len_leq
-          exact overlap_reduces' r₂_mem
+          exact Overlap_reduces_snd r₂_mem
         exact Nat.le_trans this h_len
       exact Nat.le_trans this u_len_leq
     grind
@@ -117,7 +117,7 @@ lemma k_ResiduesCoincide [ReductionOrderLen A] (hR' : k_Complete k R')
     ∀ w : Word A, w.length ≤ k → CanonicalReduction R w = CanonicalReduction R' w := by
   intro w h_len
   have h_reduces : Reduction R' w (CanonicalReduction R w) := by
-    apply Reduction_of_Reduction_sub h_sub
+    apply Reduction_of_Reduction_sub (by sorry)
     exact reduces_to_CanonicalReduction
   have h_irr : Irreducible R' (CanonicalReduction R w) := by
     have : (CanonicalReduction R w) ∈ kIrrSet k R := by

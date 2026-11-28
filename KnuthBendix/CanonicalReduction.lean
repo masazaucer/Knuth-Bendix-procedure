@@ -17,18 +17,18 @@ def Reduce? (R : Array (Rule A)) (w : Word A) : Option (Word A) :=
   findSome? (fun r ↦ Option.map (fun u ↦ r.rhs ++ u) (List.isPrefixOf? r.lhs w)) R
 
 -- if any rule is a prefix of "b" returns reduced word by that rule otherwise makes a recursive call
--- with moving one generator from b to a (returns a if b is empty)
-def ReduceOnce_rec' (a b : Word A) (R : Array (Rule A)) : Word A :=
+-- with moving one generator from b to a (returns a (reversed) if b is empty)
+def ReduceOnce_rec (a b : Word A) (R : Array (Rule A)) : Word A :=
   match b with
   | [] => a.reverse
   | x :: b' =>
     match Reduce? R b with
-    | none => ReduceOnce_rec' (x :: a) b' R
+    | none => ReduceOnce_rec (x :: a) b' R
     | some u => a.reverse ++ u
 
 --reduces a word with the first rule that applies from left to right (if any)
 --otherwise returns original word
-def ReduceOnce (R : Array (Rule A)) (w : Word A) : Word A := ReduceOnce_rec' [] w R
+def ReduceOnce (R : Array (Rule A)) (w : Word A) : Word A := ReduceOnce_rec [] w R
 
 
 
@@ -50,6 +50,7 @@ lemma isPrefixOf?_eq_none_iff :
   apply Iff.trans this (not_congr (isPrefixOf?_eq_some_iff v w))
 
 -- If w cannot be reduced by (r :: R), then it cannot be reduced by R either
+-- TODO: take care of which side are we pushing to!
 lemma Reduce?_none_succ (r : Rule A) :
     Reduce? (R.push r) w = none → Reduce? R w = none := by
   intro h
@@ -124,13 +125,13 @@ end
 variable {w} {R} {a b : Word A}
 
 lemma ReduceOnce_rec_eq_append (a b : Word A) :
-    ReduceOnce_rec' a b R = a.reverse ++ ReduceOnce_rec' [] b R := by
+    ReduceOnce_rec a b R = a.reverse ++ ReduceOnce_rec [] b R := by
   induction b generalizing a with
   | nil =>
-    unfold ReduceOnce_rec'
+    unfold ReduceOnce_rec
     simp
   | cons x b ih =>
-    unfold ReduceOnce_rec'
+    unfold ReduceOnce_rec
     cases h : Reduce? R (x :: b) with
     | none =>
       rw [ih (x :: a), ih [x]]
@@ -139,10 +140,10 @@ lemma ReduceOnce_rec_eq_append (a b : Word A) :
       simp
 
 lemma ReduceOnce_rec_eq_not_pref [ReductionOrder A] :
-    ReduceOnce_rec' [] w R = w → ∀ r ∈ R, ¬ r.lhs <+: w := by
+    ReduceOnce_rec [] w R = w → ∀ r ∈ R, ¬ r.lhs <+: w := by
   intro h_eq r h_mem
   by_contra h_pref
-  unfold ReduceOnce_rec' at h_eq
+  unfold ReduceOnce_rec at h_eq
   induction w with
   | nil =>
     have h_empty : _ := List.eq_nil_of_prefix_nil h_pref
@@ -157,20 +158,20 @@ lemma ReduceOnce_rec_eq_not_pref [ReductionOrder A] :
 
 lemma ReduceOnce_rec_def_of_not_prefix [ReductionOrder A] {x : A}
     (h : ∀ r ∈ R, ¬ r.lhs <+: (x :: b)) :
-    ReduceOnce_rec' a (x :: b) R = ReduceOnce_rec' (x :: a) b R := by
+    ReduceOnce_rec a (x :: b) R = ReduceOnce_rec (x :: a) b R := by
   have : Reduce? R (x :: b) = none := by exact (Reduce?_none_iff (x :: b) R).mpr h
   conv =>
     lhs
-    unfold ReduceOnce_rec'
+    unfold ReduceOnce_rec
   simp [this]
 
 
--- ReduceOnce_rec' returns the same word iff no r.lhs is a subword of w
+-- ReduceOnce_rec returns the same word iff no r.lhs is a subword of w
 lemma ReduceOnce_rec_eq_iff [ReductionOrder A] :
-    ReduceOnce_rec' [] w R = w ↔ ∀ r ∈ R, ¬ r.lhs <:+: w := by
+    ReduceOnce_rec [] w R = w ↔ ∀ r ∈ R, ¬ r.lhs <:+: w := by
   induction w with
   | nil =>
-    unfold ReduceOnce_rec'
+    unfold ReduceOnce_rec
     simp only [List.reverse_nil, List.infix_nil, true_iff]
     intro r h_mem
     exact lhsNonempty r
@@ -178,7 +179,7 @@ lemma ReduceOnce_rec_eq_iff [ReductionOrder A] :
     constructor
     · intro h_eq r r_mem
       have h_pref : _ := ReduceOnce_rec_eq_not_pref h_eq
-      have : ReduceOnce_rec' [] b' R = b' := by
+      have : ReduceOnce_rec [] b' R = b' := by
         rw [ReduceOnce_rec_def_of_not_prefix h_pref, ReduceOnce_rec_eq_append] at h_eq
         simp_all
       have h_infix' : _ := ih.mp this
@@ -237,7 +238,7 @@ lemma rule_infix_ReduceOnce_append_of_lhs_infix [ReductionOrder A] {w : Word A} 
       obtain ⟨r',⟨r_mem', ⟨v, hv⟩⟩⟩ := append_eq_of_Reduce?_eq_some hu
       have h_eq : ReduceOnce R (x :: w') = u := by
         unfold ReduceOnce
-        unfold ReduceOnce_rec'
+        unfold ReduceOnce_rec
         rw [hu]
         simp
       use r'
@@ -265,9 +266,9 @@ lemma rule_infix_ReduceOnce_append_of_lhs_infix [ReductionOrder A] {w : Word A} 
         · rw [h.1]
           simp
         · have : ReduceOnce R (x :: w') = x :: ReduceOnce R w' := by
-            calc _ = ReduceOnce_rec' [] (x :: w') R := by unfold ReduceOnce; trivial
-                _ = ReduceOnce_rec' [x] w' R := by exact ReduceOnce_rec_def_of_not_prefix h'
-                _ = [x] ++ ReduceOnce_rec' [] w' R := by exact ReduceOnce_rec_eq_append [x] w'
+            calc _ = ReduceOnce_rec [] (x :: w') R := by unfold ReduceOnce; trivial
+                _ = ReduceOnce_rec [x] w' R := by exact ReduceOnce_rec_def_of_not_prefix h'
+                _ = [x] ++ ReduceOnce_rec [] w' R := by exact ReduceOnce_rec_eq_append [x] w'
                 _ = x :: ReduceOnce R w' := by exact List.singleton_append
           rw [this, h.2]
           simp
@@ -293,11 +294,11 @@ variable (w a)
 --PROOF THAT "ReduceOnce" PRODUCES A SMALLER WORD
 
 lemma ReduceOnce_rec_leq [ReductionOrder A] :
-    ReduceOnce_rec' a w R ≤ (a.reverse ++ w) := by
+    ReduceOnce_rec a w R ≤ (a.reverse ++ w) := by
   induction w generalizing a with
-  | nil => simp only [List.append_nil]; unfold ReduceOnce_rec'; exact le_refl (List.reverse a)
+  | nil => simp only [List.append_nil]; unfold ReduceOnce_rec; exact le_refl (List.reverse a)
   | cons x b' ih =>
-    unfold ReduceOnce_rec'
+    unfold ReduceOnce_rec
     cases hb : Reduce? R (x :: b') with
     | none =>
       rw [ReduceOnce_rec_eq_append, List.reverse_cons]
@@ -401,27 +402,3 @@ lemma CanonicalReduction_ReduceOnce_eq_CanonicalReduction :
     simp [h_eq]
 
 end CanonicalReduction
-
-section RewriteFromLeft
-
-def RewriteFromLeft_rec [ReductionOrder A] [DecidableEq A] (a b : Word A) (R : Array (Rule A)) : Word A :=
-  match b with
-  | [] => a.reverse
-  | x :: b' =>
-    match Reduce? R (x :: b') with
-    | none => RewriteFromLeft_rec (x :: a) b' R
-    | some v => RewriteFromLeft_rec a v R
-termination_by b
-decreasing_by
-· have : _ := ti_cons b' x
-  simp_all
-· sorry
-
-def RewriteFromLeft [ReductionOrder A] [DecidableEq A] (R : Array (Rule A)) (w : Word A) : Word A :=
-  RewriteFromLeft_rec [] w R
-
-lemma RewriteFromLeft_leq [ReductionOrder A] {R : Array (Rule A)} {w : Word A} :
-    RewriteFromLeft R w ≤ w := by
-  sorry
-
-end RewriteFromLeft

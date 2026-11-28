@@ -30,6 +30,7 @@ structure Overlap {A : Type} (u v : Word A) where
   eq : u = prefix₁ ++ overlap ++ suffix₁ ∧ v = overlap ++ suffix₂
   empty : suffix₁ = [] ∨ suffix₂ = []
 
+-- order of words matters
 structure ProperOverlap {A : Type} (u v : Word A) where
   pref : Word A
   overlap : Word A
@@ -53,6 +54,7 @@ attribute [instance] ReductionOrder.wf
 
 variable {A : Type} [LinearOrder (Word A)]
 
+
 open Function
 
 -- ORDER ON RULES
@@ -69,7 +71,7 @@ lemma f_Injective : Injective (f (A := A)) := by
 instance : LinearOrder (Rule A) :=
   LinearOrder.lift' f f_Injective
 
-def SortRules (R : List (Rule A)) : List (Rule A) := List.mergeSort R
+def SortRules (R : Array (Rule A)) : Array (Rule A) := Array.mergeSort R
 
 lemma OrderOnRules {r₁ r₂ : Rule A} :
   r₁ < r₂ ↔ r₁.lhs < r₂.lhs ∨ (r₁.lhs = r₂.lhs ∧ r₁.rhs < r₂.rhs) := by
@@ -114,7 +116,7 @@ def MakeRule (w₁ w₂ : Word A) (h_neq : w₁ ≠ w₂) : Rule A := {
 
 
 --LEMMAS ABOUT "MakeOverlap" AND "MakeRule"
-lemma MakeOverlap_eq (o : Overlap u v) :
+lemma MakeOverlap_def (o : Overlap u v) :
     MakeOverlap o.overlap o.prefix₁ o.suffix₁ o.suffix₂ o.nontriv o.empty o.eq = o := by
   unfold MakeOverlap
   simp
@@ -251,7 +253,7 @@ lemma LeqTrivial_Empty : w ≤ [] → w = [] := by
   exact eq_of_ge_of_le (EmptyWordBottom w) leq_triv
 
 
-lemma ti_cons [ReductionOrder A] (w : Word A) (x : A) : w < (x :: w) := by
+lemma ti_cons (x : A) : w < (x :: w) := by
   rw [←List.singleton_append]
   apply tir_le (l₁ := [])
   refine (EmptyWordBottom' [x]).mpr ?_
@@ -346,5 +348,42 @@ lemma ListGetRest_none' (hu : u = y ++ u') (hv : v = y ++ v') (hu' : u' = []) :
   rw [hu]
   exact ListGetRest_none hv
 
-
 end ListGetRest
+
+
+section Arrays
+
+variable {α : Type}
+#synth Membership α (Array α)
+
+
+instance {α : Type} : HasSubset (Array α) := by
+  refine { Subset := ?_ }
+  exact fun x y ↦ x.toList ⊆ y.toList
+
+lemma Array_subset_def {α : Type} {as bs : Array α} :
+    as ⊆ bs ↔ ∀ x : α, x ∈ as → x ∈ bs := by
+  constructor
+  · intro h_sub x h_mem
+    rw [@Array.mem_def] at *
+    exact h_sub h_mem
+  · intro h x h_mem
+    specialize h x (by exact Array.mem_def.mpr h_mem)
+    exact h.val
+
+lemma Array_subset_refl {α : Type} {as : Array α} :
+    as ⊆ as := by
+  intro x h
+  exact h
+
+lemma Array_subset_mem {α : Type} {as bs : Array α} {x : α}
+    (h_sub : as ⊆ bs) (h_mem : x ∈ as) : x ∈ bs := by
+  rw [@Array.mem_def]
+  exact h_sub (by exact h_mem.val)
+
+lemma Array_subset_trans {α : Type} {as bs cs : Array α}
+    (h1 : as ⊆ bs) (h2 : bs ⊆ cs) : as ⊆ cs := by
+  intro x h_mem
+  exact h2 (h1 h_mem)
+
+end Arrays
